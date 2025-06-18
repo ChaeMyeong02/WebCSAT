@@ -25,7 +25,7 @@ public class WebSecurityConfig {
                 .defaultSuccessUrl("/index")
         );
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/login", "/signup", "/user").permitAll()
+                .requestMatchers("/login", "/signup").permitAll()
                 .anyRequest().authenticated()
         );
         http.logout(logout -> logout
