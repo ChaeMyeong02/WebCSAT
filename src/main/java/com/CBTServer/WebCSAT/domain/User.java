@@ -2,13 +2,18 @@ package com.CBTServer.WebCSAT.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
+/* UserTable */
+@EntityListeners(AuditingEntityListener.class)
 @Entity
 @Table(name = "user")
 @AllArgsConstructor
@@ -39,6 +44,9 @@ public class User implements UserDetails {
         this.role = role;
     }
 
+    @CreatedDate
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
