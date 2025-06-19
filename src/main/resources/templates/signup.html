@@ -25,7 +25,8 @@
 <!--            <input type="hidden" th:name="${_csrf?.parameterName}" th:value="${_csrf?.token}" />-->
             <div class="mb-3">
               <label class="form-label text-white">Email address</label>
-              <input type="email" class="form-control" name="email">
+              <input type="email" id="email" class="form-control" name="email">
+                <button type="button" id="email-btn" class="btn btn-primary">메일 인증</button>
             </div>
             <div class="mb-3">
               <label class="form-label text-white">NickName</label>
@@ -43,5 +44,8 @@
     </div>
   </div>
 </section>
+
+<script src="/js/mail.js"></script>
+
 </body>
 </html>

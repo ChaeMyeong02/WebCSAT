@@ -46,7 +46,6 @@ public class MailService {
     public int sendMail(String mail) {
         MimeMessage message = createMail(mail);
         javaMailSender.send(message);
-
         return number;
     }
 }
