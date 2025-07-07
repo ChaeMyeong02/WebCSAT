@@ -34,19 +34,28 @@ public class User implements UserDetails {
     @Column(name = "nickname")
     private String nickname;
 
+    @Column(name = "oauth2")
+    private String oauth2;
+
     private String role;
 
     @Builder
-    public User(String email, String password, String nickname, String role) {
+    public User(String email, String password, String nickname, String oauth2, String role) {
         this.email = email;
         this.password = password;
         this.nickname = nickname;
+        this.oauth2 = oauth2;
         this.role = role;
     }
 
     @CreatedDate
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    public User update(String nickname) {
+        this.nickname = nickname;
+        return this;
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

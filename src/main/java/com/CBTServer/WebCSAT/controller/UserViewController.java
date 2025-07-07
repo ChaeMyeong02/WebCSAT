@@ -26,10 +26,4 @@ public class UserViewController {
         return "signup";
     }
 
-    // Default SingUp PostMapping
-    @PostMapping("/signup")
-    public String signup(UserDTO dto) {
-        userService.save(dto);
-        return "redirect:/login";
-    }
 }

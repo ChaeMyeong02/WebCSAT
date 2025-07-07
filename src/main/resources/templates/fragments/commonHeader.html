@@ -1,0 +1,70 @@
+<header th:fragment="header">
+  <nav class="navbar navbar-expand-lg gradient-custom-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand text-white" href="/"><img th:src="@{/img/logo.png}" alt="logo" class="logo-img"></a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+          <li class="nav-item">
+            <a class="nav-link active text-white" aria-current="page" href="/">홈</a>
+          </li>
+          <li class="nav-item">
+            <a id="loginLink" class="nav-link text-white" href="/login">로그인</a>
+            <a id="logoutLink" class="nav-link text-white" href="/logout" style="display: none;">로그아웃</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link text-white" href="/test">시험치기</a>
+          </li>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle text-white" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              마이페이지
+            </a>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="mypage">내정보</a></li>
+              <li><a class="dropdown-item" href="#">내시험보기</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="#">회원탈퇴</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const accessToken = localStorage.getItem('token');
+      const loginLink = document.getElementById('loginLink');
+      const logoutLink = document.getElementById('logoutLink');
+
+      if (accessToken) {
+        loginLink.style.display = 'none';
+        logoutLink.style.display = 'block';
+      }
+
+      logoutLink.addEventListener('click', function(event) {
+        event.preventDefault();
+        if (confirm("로그아웃하시겠습니까?")) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('refresh_token');
+          alert("로그아웃 되었습니다.");
+          window.location.href = '/';
+        }
+      });
+    });
+  </script>
+  <style>
+    .gradient-custom {
+        background: linear-gradient(to right, rgba(155, 89, 182, 1), rgba(52, 152, 219, 1));
+    }
+    .gradient-custom-dark {
+        background: linear-gradient(to right, rgba(123, 79, 179, 1), rgba(72, 149, 203, 1));
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+    .logo-img {
+      height: 36px;
+      object-fit: contain;
+    }
+  </style>
+</header>
