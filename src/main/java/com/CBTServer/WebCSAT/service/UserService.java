@@ -47,7 +47,7 @@ public class UserService {
         User user = findByEmail(email);
         UserDTO userDTO = new UserDTO();
         userDTO.setEmail(user.getEmail());
-        userDTO.setNickname(user.getEmail());
+        userDTO.setNickname(user.getNickname());
         userDTO.setOauth2(user.getOauth2());
         userDTO.setRole(user.getRole());
         userDTO.setCreated_at(user.getCreatedAt());
@@ -60,7 +60,7 @@ public class UserService {
         for (User u : userList) {
             UserDTO userDTO = new UserDTO();
             userDTO.setEmail(u.getEmail());
-            userDTO.setNickname(u.getEmail());
+            userDTO.setNickname(u.getNickname());
             userDTO.setOauth2(u.getOauth2());
             userDTO.setRole(u.getRole());
             userDTO.setCreated_at(u.getCreatedAt());
