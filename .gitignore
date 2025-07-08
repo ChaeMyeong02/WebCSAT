@@ -37,3 +37,4 @@ out/
 .vscode/
 # .gitignore
 src/main/resources/application.properties
+.env
