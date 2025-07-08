@@ -16,10 +16,6 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Service
 public class OAuth2UserCustomService extends DefaultOAuth2UserService {
-    // 스프링 시큐리티는 발급받은 Access Token을 가지고 구글의 사용자 정보 API(userInfoEndpoint)를 호출하여
-    // 사용자의 프로필 정보(이름, 이메일 등)를 이미 가져왔고,
-    // 이 정보를 가지고 DB 저장 등의 후처리하는 사용자 정의 클래스
-
     private final UserRepository userRepository;
 
     @Override
@@ -47,7 +43,6 @@ public class OAuth2UserCustomService extends DefaultOAuth2UserService {
 
         User user = saveOrUpdate(email, name, registrationId);
 
-        // CustomOAuth2User에 User 정보와 OAuth2User를 함께 담아 반환
         return new CustomOAuth2User(oAuth2User, user);
     }
 
@@ -58,7 +53,6 @@ public class OAuth2UserCustomService extends DefaultOAuth2UserService {
         if (optionalUser.isPresent()) {
             User existingUser = optionalUser.get();
             if (!existingUser.getOauth2().equals(registrationId)) {
-                // OAuth2AuthenticationException으로 감싸서 던짐
                 OAuth2Error error = new OAuth2Error("provider_mismatch", "다른 로그인 방식으로 이미 가입된 계정입니다!\n다른 방식으로 접근해주십시오.", null);
                 throw new OAuth2AuthenticationException(error);
             }

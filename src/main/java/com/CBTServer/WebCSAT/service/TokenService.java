@@ -21,7 +21,6 @@ public class TokenService {
         }
 
         Long useId = refreshTokenService.findByRefreshToken(refreshToken).getUserId();
-        System.out.println("createNewAccessToken => "+useId);
         User user = userService.findById(useId);
         return tokenProvider.generateToken(user, Duration.ofHours(2));
     }

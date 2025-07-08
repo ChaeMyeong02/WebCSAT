@@ -47,8 +47,6 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
 
-
-    // 이미 해당 유저의 리프레시 토큰이 있다면 새로운 토큰으로 업데이트하고, 없다면 새로 생성하여 저장합니다.
     private void saveRefreshToken(Long userId, String newRefreshToken) {
         RefreshToken refreshToken = refreshTokenRopository.findByUserId(userId)
                 .map(entity -> entity.update(newRefreshToken))
@@ -57,9 +55,6 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         refreshTokenRopository.save(refreshToken);
     }
 
-    // 생성된 리프레시 토큰을 refresh_token이라는 이름의 HTTP-Only 쿠키에 담아 사용자 브라우저에 전달합니다.
-    // 이렇게 쿠키에 저장하면, 자바스크립트로 접근할 수 없어 XSS 공격으로부터 안전하며,
-    // 브라우저가 자동으로 요청에 포함시켜 보내주므로 편리합니다
     private void addRefreshTokenToCookie(HttpServletRequest request, HttpServletResponse response, String refreshToken) {
         int cookieMaxAge = (int) REFRESH_TOKEN_DURATION.toSeconds();
 
@@ -72,8 +67,6 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         authorizationRequestRepository.removeAuthorizationRequestCookies(request, response);
     }
 
-    // 클라이언트가 다음 페이지(/articles)로 이동할 때 토큰을 URL 파라미터로 전달
-    // localhost:8088/articles?token=....
     private String getTargetUrl(String token) {
         return UriComponentsBuilder.fromUriString(REDIRECT_PATH)
                 .queryParam("token", token)

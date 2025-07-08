@@ -47,24 +47,17 @@ public class WebOAuthSecurityConfig {
 
         http.authorizeHttpRequests(auth -> auth
                         .requestMatchers("/login","/api/token").permitAll()
-                        .requestMatchers("/api/**").authenticated() // 글수정, 삭제기능 등
+                        .requestMatchers("/api/**").authenticated()
                         .requestMatchers("/img/**", "/css/**", "/js/**").permitAll()
                         .anyRequest().permitAll());
 
-        http.oauth2Login(oauth2 -> oauth2  // OAuth2 기반 로그인을 설정하는 메서드 => 예: Google, Naver, Kakao 같은 OAuth 제공자 로그인 설정
-                        .loginPage("/login") // 1. 커스텀 로그인 페이지 설정 => oauthLogin.html 수행되도록 함
-                        // 사용자가 로그인 버튼을 누르면 인가 요청을 생성하는 구간
-                        // 인가요청정보(client-id/secret-key 등)를 쿠키에 저장/관리하도록 커스텀 리포지토리를 설정한 것
+        http.oauth2Login(oauth2 -> oauth2
+                        .loginPage("/login")
                         .authorizationEndpoint(authorizationEndpoint ->
                                 authorizationEndpoint.authorizationRequestRepository(oAuth2AuthorizationRequestBasedOnCookieRepository()))
-                        // 로그인 성공 후 제공자(Google 등)로부터 사용자 정보를 받아오는 구간
-                        // 받아온 사용자 정보를 가공/추가 처리하는 서비스를 지정한 것
-                        // oAuth2UserCustomService에서 OAuth2UserService를 구현해서 loadUser()에서 사용자 정보를 DB에 저장하거나 추가 정보를 가져올 수 있음
-                        .userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint.userService(oAuth2UserCustomService))  // 사용자 정보 가공
+                        .userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint.userService(oAuth2UserCustomService))
                         .failureHandler(customOAuth2FailureHandler)
-                        //OAuth 로그인에 성공한 후 추가로 처리할 작업을 정의한 핸들러
-                        // JWT 토큰 생성, 세션 설정, 리다이렉션 경로 지정 등
-                        .successHandler(oAuth2SuccessHandler())); // 로그인 성공 시 추가 처리
+                        .successHandler(oAuth2SuccessHandler()));
         http.logout(logout -> logout
                         .logoutSuccessUrl("/"));
         return http.build();

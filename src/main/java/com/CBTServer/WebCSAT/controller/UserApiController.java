@@ -14,11 +14,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.Map;
 
 @RestController
@@ -36,4 +34,13 @@ public class UserApiController {
         return "redirect:/login";
     }
 
+    @GetMapping("/api/user/userInfo/{email}")
+    public UserDTO apiUserInfo(@PathVariable String email) {
+        return userService.apiUserInfo(email);
+    }
+
+    @GetMapping("/api/user/userInfo")
+    public ArrayList<UserDTO> apiUserInfo() {
+        return userService.apiAllUserInfo();
+    }
 }

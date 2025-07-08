@@ -13,16 +13,13 @@ public class CookieUtil {
         Cookie cookie = new Cookie(name, value);
         cookie.setPath("/");
         cookie.setMaxAge(maxAge);
-        cookie.setHttpOnly(true); // ✅ 자바스크립트에서 접근 불가능하게 만듦
-
-        System.out.println("CookieUtil.addCookie==> name:"+name+" value:"+value);
+        cookie.setHttpOnly(true);
 
         response.addCookie(cookie);
     }
 
     public static void deleteCookie(HttpServletRequest request, HttpServletResponse response, String name) {
         Cookie[] cookies = request.getCookies();
-        System.out.println("CookieUtil.deleteCookie");
 
         if (cookies == null) {
             return;
