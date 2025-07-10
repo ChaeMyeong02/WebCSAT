@@ -41,6 +41,25 @@
       if (accessToken) {
         loginLink.style.display = 'none';
         logoutLink.style.display = 'block';
+
+        // JWT Payload에서 role 추출
+        const payload = JSON.parse(atob(accessToken.split('.')[1]));
+        const userRole = payload.role || payload.auth || null; // 서버 발급 구조에 따라 'role' 또는 'auth' 키 확인
+
+        if (userRole === 'ADMIN') {
+          const navList = document.querySelector('.navbar-nav');
+
+          const adminNavItem = document.createElement('li');
+          adminNavItem.classList.add('nav-item');
+
+          const adminLink = document.createElement('a');
+          adminLink.classList.add('nav-link', 'text-white');
+          adminLink.href = '/admin';
+          adminLink.textContent = '관리';
+
+          adminNavItem.appendChild(adminLink);
+          navList.appendChild(adminNavItem);
+        }
       }
 
       logoutLink.addEventListener('click', function(event) {

@@ -29,7 +29,7 @@ public class UserService {
         entity.setPassword(encoder.encode(dto.getPassword()));
 
         User savedUser = userRepository.save(entity);
-        return savedUser.getId();
+        return savedUser.getUserId();
     }
 
 
@@ -46,6 +46,7 @@ public class UserService {
     public UserDTO apiUserInfo(String email) {
         User user = findByEmail(email);
         UserDTO userDTO = new UserDTO();
+        userDTO.setUserId(user.getUserId());
         userDTO.setEmail(user.getEmail());
         userDTO.setNickname(user.getNickname());
         userDTO.setOauth2(user.getOauth2());
@@ -59,6 +60,7 @@ public class UserService {
         ArrayList<UserDTO> userDTOList = new ArrayList<>();
         for (User u : userList) {
             UserDTO userDTO = new UserDTO();
+            userDTO.setUserId(u.getUserId());
             userDTO.setEmail(u.getEmail());
             userDTO.setNickname(u.getNickname());
             userDTO.setOauth2(u.getOauth2());

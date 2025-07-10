@@ -1,6 +1,7 @@
 package com.CBTServer.WebCSAT.controller;
 
 import com.CBTServer.WebCSAT.config.jwt.TokenProvider;
+import com.CBTServer.WebCSAT.dto.QuestionDTO;
 import com.CBTServer.WebCSAT.dto.UserDTO;
 import com.CBTServer.WebCSAT.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,6 +18,7 @@ import org.springframework.security.web.authentication.logout.SecurityContextLog
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -34,13 +36,19 @@ public class UserApiController {
         return "redirect:/login";
     }
 
-    @GetMapping("/api/user/userInfo/{email}")
-    public UserDTO apiUserInfo(@PathVariable String email) {
-        return userService.apiUserInfo(email);
+    @GetMapping("/api/user/{email}")
+    public ResponseEntity<?> apiUserInfo(@PathVariable String email) {
+        try {
+            UserDTO dto = userService.apiUserInfo(email);
+            return ResponseEntity.ok().body(dto) ;
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "존재하지 않는 유저입니다."));
+        }
     }
 
-    @GetMapping("/api/user/userInfo")
-    public ArrayList<UserDTO> apiUserInfo() {
-        return userService.apiAllUserInfo();
+    @GetMapping("/api/user")
+    public ResponseEntity<List<UserDTO>> apiUserInfo() {
+        List<UserDTO> dtoList = userService.apiAllUserInfo();
+        return ResponseEntity.ok().body(dtoList) ;
     }
 }

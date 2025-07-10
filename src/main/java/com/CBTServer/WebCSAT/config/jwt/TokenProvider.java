@@ -38,7 +38,8 @@ public class TokenProvider {
                 .setIssuedAt(now)
                 .setExpiration(expiry)
                 .setSubject(user.getEmail())
-                .claim("id", user.getId())
+                .claim("id", user.getUserId())
+                .claim("role", user.getRole())
                 .signWith(SignatureAlgorithm.HS256, jwtProperties.getSecretKey())
                 .compact();
     }
@@ -62,6 +63,7 @@ public class TokenProvider {
                 .setIssuedAt(now)
                 .setExpiration(validity)
                 .setSubject(username)
+                .claim("role", authorities)
                 .signWith(SignatureAlgorithm.HS256, jwtProperties.getSecretKey())
                 .compact();
     }
