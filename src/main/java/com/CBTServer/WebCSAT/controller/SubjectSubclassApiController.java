@@ -67,4 +67,44 @@ public class SubjectSubclassApiController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "오류가 발생하였습니다."));
         }
     }
+
+    @PutMapping("/api/subject/{subjectId}")
+    public ResponseEntity<?> updateSubject(@PathVariable("subjectId") Long subjectId, @RequestBody SubjectDTO subjectDTO) {
+        try {
+            SubjectDTO updated = subjectSubclassService.updateSubject(subjectId, subjectDTO);
+            return ResponseEntity.ok().body(updated);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "과목이 존재하지 않습니다."));
+        }
+    }
+
+    @PutMapping("/api/subclass/{subclassId}")
+    public ResponseEntity<?> updateSubclass(@PathVariable("subclassId") Long subclassId, @RequestBody SubclassDTO subclassDTO) {
+        try {
+            SubclassDTO updated = subjectSubclassService.updateSubclass(subclassId, subclassDTO);
+            return ResponseEntity.ok().body(updated);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "선택과목이 존재하지 않습니다."));
+        }
+    }
+
+    @DeleteMapping("/api/subject/{subjectId}")
+    public ResponseEntity<?> deleteSubject(@PathVariable("subjectId") Long subjectId) {
+        try {
+            subjectSubclassService.deleteSubject(subjectId);
+            return ResponseEntity.noContent().build(); // HTTP 204
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "과목이 존재하지 않습니다."));
+        }
+    }
+
+    @DeleteMapping("/api/subclass/{subclassId}")
+    public ResponseEntity<?> deleteSubclass(@PathVariable("subclassId") Long subclassId) {
+        try {
+            subjectSubclassService.deleteSubclass(subclassId);
+            return ResponseEntity.noContent().build();
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "선택과목이 존재하지 않습니다."));
+        }
+    }
 }

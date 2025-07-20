@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>임앤장CBT</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+</head>
+<script>
+    function updateSubclassOptions() {
+      const subjectSelect = document.getElementById('subjectSelect');
+      const selectedSubjectId = subjectSelect.value;
+      const subclassSelect = document.getElementById('subclassSelect');
+      const subclassOptions = subclassSelect.querySelectorAll('option');
+      const isSubjective = document.getElementById('subjective').checked;
+
+      let visibleExists = false;
+
+      subclassOptions.forEach(option => {
+        const matchSubject = option.dataset.subjectId === selectedSubjectId;
+        const isOptional = option.dataset.optional === 'true';
+
+        const shouldShow = matchSubject && (!isSubjective || isOptional); // 모의고사면 선택과목만
+
+        if (shouldShow) {
+          option.hidden = false;
+          visibleExists = true;
+        } else {
+          option.hidden = true;
+          option.selected = false;
+        }
+      });
+
+      if (visibleExists) {
+        const firstVisible = Array.from(subclassOptions).find(o => !o.hidden);
+        if (firstVisible) firstVisible.selected = true;
+        subclassSelect.disabled = false;
+      } else {
+        subclassSelect.innerHTML = ''; // 기존 제거
+        const placeholder = document.createElement('option');
+        placeholder.text = '세부과목 없음';
+        placeholder.disabled = true;
+        placeholder.selected = true;
+        subclassSelect.appendChild(placeholder);
+        subclassSelect.disabled = true;
+      }
+    }
+
+
+        window.addEventListener('DOMContentLoaded', updateSubclassOptions);
+</script>
+<body class="gradient-custom d-flex flex-column min-vh-100">
+<th:block th:replace="~{fragments/commonHeader :: header}"></th:block>
+
+<!-- 콘텐츠를 flex-grow-1로 감싸 남는 높이 채움 -->
+<main class="container d-flex flex-column justify-content-center align-items-center flex-grow-1 text-center">
+    <h1 class="text-white mt-4">문제 추가</h1>
+    <p class="lead text-white-50 mb-4">원하는 유형의 문제를 추가하세요</p>
+
+    <div class="mb-2">
+        <label class="form-label text-white d-block">문제 유형</label>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="typeToggle" id="objective" checked
+                   data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="문제은행 유형: 독립된 단일 문제 등록">
+            <label class="form-check-label" for="objective">문제은행</label>
+        </div>
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="typeToggle" id="subjective"
+                   data-bs-toggle="tooltip" data-bs-placement="top"
+                   title="모의고사 유형: 선택과목 기반 문제지 형식으로 등록">
+            <label class="form-check-label" for="subjective">모의고사</label>
+        </div>
+    </div>
+
+    <div class="row w-100 justify-content-center mb-3">
+        <div class="col-md-4">
+            <label for="subjectSelect" class="form-label text-white">과목 선택:</label>
+            <div class="input-group">
+                <select id="subjectSelect" class="form-select" onchange="updateSubclassOptions()">
+                    <option th:each="subject : ${subjectDTOList}"
+                            th:value="${subject.subjectId}"
+                            th:text="${subject.subjectName}">
+                    </option>
+                </select>
+                <button class="btn btn-outline-light" data-bs-toggle="modal" data-bs-target="#addSubjectModal">과목 추가</button>
+            </div>
+        </div>
+
+        <!-- subclass 추가 버튼 -->
+        <div class="col-md-4">
+            <label for="subclassSelect" class="form-label text-white">선택과목:</label>
+            <div class="input-group">
+                <select id="subclassSelect" class="form-select">
+                    <option th:each="subclass : ${subclassDTOList}"
+                            th:data-subject-id="${subclass.subjectId}"
+                            th:data-optional="${subclass.optional}"
+                            th:text="${subclass.subclassName + ' (' + (subclass.optional ? '선택' : '공통') + ')'}">
+                    </option>
+                </select>
+                <button class="btn btn-outline-light" data-bs-toggle="modal" data-bs-target="#addSubclassModal">선택과목 추가</button>
+            </div>
+        </div>
+    </div>
+    <div class="d-flex gap-4">
+        <a href="/admin/question/add/bank" class="bank btn btn-primary btn-lg">문제은행용 문제 추가</a>
+        <a href="/admin/question/add/mock" class="csat btn btn-success btn-lg">모의고사용 문제 추가</a>
+    </div>
+</main>
+
+<div class="modal fade" id="addSubjectModal" tabindex="-1" aria-labelledby="addSubjectModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-start">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addSubjectModalLabel">새 과목 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addSubjectForm">
+                    <div class="mb-3">
+                        <label for="subjectName" class="form-label">과목 이름</label>
+                        <input type="text" class="form-control" id="subjectName" name="subjectName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="examTime" class="form-label">시험 시간 (분)</label>
+                        <input type="number" class="form-control" id="examTime" name="examTime" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="isOptional" class="form-label">선택과목 여부</label>
+                        <select class="form-select" id="isOptional" name="isOptional" required>
+                            <option value="true">세부 선택과목 있음(ex 국어, 수학 등)</option>
+                            <option value="false">세부 선택과목 없음(ex 과학, 사회 등)</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="submitNewSubject()">추가</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- subclass 추가 모달 -->
+<div class="modal fade" id="addSubclassModal" tabindex="-1" aria-labelledby="addSubclassModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-start">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addSubclassModalLabel">새 선택과목 추가</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addSubclassForm">
+                    <div class="mb-3">
+                        <label for="subclassName" class="form-label">세부과목 이름</label>
+                        <input type="text" class="form-control" id="subclassName" name="subclassName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="count" class="form-label">문제 개수</label>
+                        <input type="number" class="form-control" id="count" name="count" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="subclassOptional" class="form-label">선택과목 여부</label>
+                        <select class="form-select" id="subclassOptional" name="optional" required>
+                            <option value="true">선택과목</option>
+                            <option value="false">공통과목</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="submitNewSubclass()">추가</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/token.js"></script>
+<script>
+    function updateMode() {
+        const isObjective = document.getElementById('objective').checked;
+        const bankBtn = document.querySelector('.bank');
+        const csatBtn = document.querySelector('.csat');
+        if (isObjective) {
+          bankBtn.style.display = 'block';
+          csatBtn.style.display = 'none';
+        } else {
+          bankBtn.style.display = 'none';
+          csatBtn.style.display = 'block';
+        }
+        updateSubclassOptions(); // 추가
+    }
+        document.getElementById('subjective').addEventListener('change', updateMode);
+        document.getElementById('objective').addEventListener('change', updateMode);
+        updateMode();
+
+          function submitNewSubject() {
+        const subjectName = document.getElementById('subjectName').value.trim();
+        const examTime = parseInt(document.getElementById('examTime').value);
+        const isOptional = document.getElementById('isOptional').value === 'true' ? 1 : 0;;
+
+        if (!subjectName || isNaN(examTime) || examTime <= 0) {
+          alert("입력값을 확인하세요.");
+          return;
+        }
+
+        const data = {
+          subjectName: subjectName,
+          min: examTime,
+          option: isOptional
+        };
+
+        fetch('/api/subject', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': getToken() // token.js 가 제공하는 함수
+          },
+          body: JSON.stringify(data)
+        })
+        .then(response => {
+          if (response.ok) return response.json();
+          throw new Error("추가 실패");
+        })
+        .then(newSubject => {
+          const subjectSelect = document.getElementById('subjectSelect');
+          const option = document.createElement('option');
+          option.value = newSubject.subjectId;
+          option.text = newSubject.subjectName;
+          subjectSelect.appendChild(option);
+          subjectSelect.value = newSubject.subjectId;
+          updateSubclassOptions();
+          bootstrap.Modal.getInstance(document.getElementById('addSubjectModal')).hide();
+        })
+        .catch(err => {
+          console.error(err);
+          alert("과목 추가 중 오류가 발생했습니다.");
+        });
+      }
+
+        function submitNewSubclass() {
+      const subclassName = document.getElementById('subclassName').value.trim();
+      const count = parseInt(document.getElementById('count').value);
+      const isOptional = document.getElementById('subclassOptional').value === 'true' ? 1 : 0;;
+      const subjectId = document.getElementById('subjectSelect').value;
+
+      if (!subclassName || isNaN(count) || count <= 0 || !subjectId) {
+        alert("입력값을 확인하세요.");
+        return;
+      }
+
+      const data = {
+        subclassName: subclassName,
+        count: count,
+        optional: isOptional,
+        subjectId: parseInt(subjectId)
+      };
+
+      fetch('/api/subclass', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': getToken()
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => {
+        if (response.ok) return response.json();
+        throw new Error("추가 실패");
+      })
+      .then(newSubclass => {
+        const subclassSelect = document.getElementById('subclassSelect');
+        const option = document.createElement('option');
+        option.text = `${newSubclass.subclassName} (${newSubclass.optional === 1 ? '선택' : '공통'})`;
+        option.setAttribute('data-subject-id', newSubclass.subjectId);
+        option.hidden = (newSubclass.subjectId != subjectId); // 다른 subject이면 기본적으로 숨김
+        option.selected = true;
+        subclassSelect.appendChild(option);
+
+        bootstrap.Modal.getInstance(document.getElementById('addSubclassModal')).hide();
+        updateSubclassOptions();
+      })
+      .catch(err => {
+        console.error(err);
+        alert("선택과목 추가 중 오류가 발생했습니다.");
+      });
+    }
+
+</script>
+</body>
+</html>

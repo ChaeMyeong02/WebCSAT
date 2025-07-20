@@ -1,13 +1,12 @@
 package com.CBTServer.WebCSAT.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.List;
 
 @Entity
 @Table(name = "csat_date")
@@ -19,4 +18,14 @@ public class CsatDate {
     @Id
     @Column(name = "csat_date", nullable = false)
     private String csatDate;
+
+    @OneToMany(mappedBy = "csatDate", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Question> questions;
+
+    @OneToMany(mappedBy = "csatDate", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Exam> exams;
+
+
+    @OneToMany(mappedBy = "csatDate", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ImageMeta> imageMetas;
 }

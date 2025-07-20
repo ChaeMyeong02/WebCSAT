@@ -6,7 +6,9 @@ import lombok.*;
 @Entity
 @Table(name = "question")
 @AllArgsConstructor @NoArgsConstructor @Getter @Setter
+@Builder
 public class Question {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "question_id", updatable = false, unique = true)
@@ -20,11 +22,12 @@ public class Question {
     private String questionTitle;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "question_article", referencedColumnName = "question_article")
-    private QuestionArticle questionArticle;
+    @JoinColumn(name = "question_article", referencedColumnName = "url")
+    private ImageMeta questionArticle;
 
-    @Column(name = "question_context")
-    private String questionContext;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "question_context", referencedColumnName = "url")
+    private ImageMeta questionContext;
 
     @Column(name = "score")
     private int score;
@@ -61,13 +64,5 @@ public class Question {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subclass_id", referencedColumnName = "subclass_id")
     private Subclass subclass;
-
-    @Builder
-    public Question(Subject subject, Subclass subclass, CsatDate csatDate, int num, boolean questionType) {
-        this.subject = subject;
-        this.subclass = subclass;
-        this.csatDate = csatDate;
-        this.num = num;
-        this.questionType = questionType;
-    }
 }
+

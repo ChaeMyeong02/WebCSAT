@@ -37,4 +37,18 @@ public class Subclass {
     @JoinColumn(name = "subject_id")
     private Subject subject;
 
+    @OneToMany(mappedBy = "subclass", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Question> questions;
+
+    @OneToMany(mappedBy = "subclass", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Exam> exams;
+
+    @OneToMany(mappedBy = "subclass", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ExamQuestion> examQuestions;
+
+    @OneToMany(mappedBy = "subclass", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SubclassCsatDate> subclassCsatDates;
+
+    @OneToMany(mappedBy = "subclass", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ImageMeta> imageMetas;
 }

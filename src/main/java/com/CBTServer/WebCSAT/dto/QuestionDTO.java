@@ -29,8 +29,11 @@ public class QuestionDTO {
         this.questionId = question.getQuestionId();
         this.num = question.getNum();
         this.questionTitle = question.getQuestionTitle();
-        this.questionArticle = question.getQuestionArticle() != null ? question.getQuestionArticle().getQuestionArticle() : "";
-        this.questionContext = question.getQuestionContext();
+
+        // ImageMeta로 바뀐 필드 처리
+        this.questionArticle = question.getQuestionArticle() != null ? question.getQuestionArticle().getUrl() : null;
+        this.questionContext = question.getQuestionContext() != null ? question.getQuestionContext().getUrl() : null;
+
         this.score = question.getScore();
         this.answer = question.getAnswer();
         this.option1 = question.getOption1();
@@ -39,9 +42,10 @@ public class QuestionDTO {
         this.option4 = question.getOption4();
         this.option5 = question.getOption5();
         this.questionType = question.isQuestionType();
-        this.csatDate = question.getCsatDate() != null ? question.getCsatDate().toString() : null;
+        this.csatDate = question.getCsatDate() != null ? question.getCsatDate().getCsatDate() : null;
         this.subjectId = question.getSubject() != null ? question.getSubject().getSubjectId() : null;
         this.subclassId = question.getSubclass() != null ? question.getSubclass().getSubclassId() : null;
     }
+
 
 }

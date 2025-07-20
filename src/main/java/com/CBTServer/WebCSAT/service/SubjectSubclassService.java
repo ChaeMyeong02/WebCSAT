@@ -93,5 +93,55 @@ public class SubjectSubclassService {
                 .subjectId(subclass.getSubject() != null ? subclass.getSubject().getSubjectId() : null)
                 .build();
     }
-    
+
+    public SubjectDTO updateSubject(Long subjectId, SubjectDTO subjectDTO) {
+        Subject subject = subjectRepository.findById(subjectId)
+                .orElseThrow(() -> new IllegalArgumentException("과목이 존재하지 않습니다."));
+
+        subject.setSubjectName(subjectDTO.getSubjectName());
+        subject.setMin(subjectDTO.getMin());
+        subject.setOption(subjectDTO.getOption());
+
+        Subject updated = subjectRepository.save(subject);
+        return new SubjectDTO(updated.getSubjectId(), updated.getSubjectName(), updated.getOption(), updated.getMin());
+    }
+
+    public SubclassDTO updateSubclass(Long subclassId, SubclassDTO subclassDTO) {
+        Subclass subclass = subclassRepository.findById(subclassId)
+                .orElseThrow(() -> new IllegalArgumentException("선택과목이 존재하지 않습니다."));
+        subclass.setSubclassName(subclassDTO.getSubclassName());
+        subclass.setCount(subclassDTO.getCount());
+        subclass.setOptional(subclassDTO.isOptional());
+
+        if (subclassDTO.getSubjectId() != null) {
+            Subject newSubject = subjectRepository.findById(subclassDTO.getSubjectId())
+                    .orElseThrow(() -> new IllegalArgumentException("지정한 과목이 존재하지 않습니다."));
+            subclass.setSubject(newSubject);
+        }
+
+        Subclass updated = subclassRepository.save(subclass);
+
+        return SubclassDTO.builder()
+                .subclassId(updated.getSubclassId())
+                .subclassName(updated.getSubclassName())
+                .count(updated.getCount())
+                .optional(updated.isOptional())
+                .subjectId(updated.getSubject() != null ? updated.getSubject().getSubjectId() : null)
+                .build();
+    }
+
+
+    public void deleteSubject(Long subjectId) {
+        Subject subject = subjectRepository.findById(subjectId)
+                .orElseThrow(() -> new IllegalArgumentException("과목이 존재하지 않습니다."));
+        subjectRepository.delete(subject);
+    }
+
+    public void deleteSubclass(Long subclassId) {
+        Subclass subclass = subclassRepository.findById(subclassId)
+                .orElseThrow(() -> new IllegalArgumentException("선택과목이 존재하지 않습니다."));
+
+        subclassRepository.delete(subclass);
+
+    }
 }

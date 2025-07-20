@@ -28,7 +28,7 @@ public class QuestionApiController {
     @PostMapping("/api/question")
     public ResponseEntity<?> getQuestion(@RequestBody QuestionDTO questionDTO) {
         try {
-            QuestionDTO dto = questionService.newQuestion(questionDTO.getCsatDate(), questionDTO.getSubjectId(), questionDTO.getSubclassId(), questionDTO.getNum(), questionDTO.isQuestionType());
+            QuestionDTO dto = questionService.newQuestion(questionDTO.getCsatDate(), questionDTO.getSubjectId(), questionDTO.getSubclassId(), questionDTO.getNum());
             return ResponseEntity.ok().body(dto);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "존재하지 않는 문제 번호입니다."));
@@ -36,8 +36,11 @@ public class QuestionApiController {
     }
 
     @PutMapping("/api/question/{questionId}")
-    public ResponseEntity<?> updateQuestion(@PathVariable("id") Long questionId, @RequestBody QuestionDTO questionDTO) {
+    public ResponseEntity<?> updateQuestion(@PathVariable("questionId") Long questionId, @RequestBody QuestionDTO questionDTO) {
         try {
+            System.out.println("title: " + questionDTO.getQuestionTitle());
+            System.out.println("option1: " + questionDTO.getOption1());
+            System.out.println("article: " + questionDTO.getQuestionArticle());
             QuestionDTO dto = questionService.updateQuestion(questionId, questionDTO);
             return ResponseEntity.ok().body(dto);
         } catch (IllegalArgumentException ex) {
