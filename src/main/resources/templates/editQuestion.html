@@ -18,6 +18,11 @@
     #editor { flex-grow: 1; min-height: 200px; background: #fff; }
     p { margin: 0 }
     .ql-toolbar.ql-snow { background-color: #fff; }
+    .editable-box:empty::before {
+      content: attr(data-placeholder);
+      color: #aaa;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body class="gradient-custom d-flex flex-column min-vh-100">
@@ -27,37 +32,44 @@
     <div class="col-12 col-md-6 d-flex flex-column">
       <h4 class="text-center mt-2">수정이 필요한 부분을 클릭하여 내용을 입력해 주세요.</h4>
       <div class="flex-grow-1 mx-2 mb-2 d-flex flex-column">
-        <div id="editor" class="rounded bg-white shadow-sm"></div>
-        <div class="text-center mt-2">
+        <div class="text-end mb-2 d-flex justify-content-end align-items-center gap-2">
+          <button type="button" id="insertIconBtn" class="btn btn-primary btn-sm">
+            아이콘 넣기
+          </button>
           <button id="applyBtn" class="btn btn-success btn-sm">반영하기</button>
         </div>
+        <div id="editor" class="rounded bg-white shadow-sm"></div>
       </div>
     </div>
     <div class="col-12 col-md-6 d-flex flex-column justify-content-start align-items-center p-2 overflow-auto">
       <div class="card w-100 shadow-sm p-3">
         <!-- 오른쪽 상단 저장 버튼 -->
-        <div class="d-flex justify-content-end mb-2">
-          <button id="saveChangesBtn" class="btn btn-primary btn-sm">변경내용 저장</button>
+        <div class="text-center mb-3">
+          <button id="saveChangesBtn" class="btn btn-primary px-4">저장하기</button>
         </div>
         <h5 id="pageTitle" class="card-title">로딩 중...</h5>
-        <div class="mb-2"><label class="form-label">문제 제목</label><div id="field-title" class="editable-box">선택하여 수정하기</div></div>
-        <!-- 지문 이미지 선택 -->
-        <div class="mb-2 d-flex align-items-center gap-2">
-          <button type="button" id="selectStemImageBtn" class="btn btn-outline-secondary btn-sm">지문 이미지 선택</button>
-          <div class="position-relative">
-            <img id="stemImagePreview" src="" alt="미리보기" class="img-thumbnail" style="max-width: 100px; display: none;">
-            <button type="button" id="clearStemImageBtn" class="btn-close position-absolute top-0 end-0" style="display: none;" aria-label="Remove"></button>
+        <div class="mb-2"><label class="form-label">문제 제목</label><div id="field-title" class="editable-box" data-placeholder="제목을 입력하세요."></div></div>
+        <!-- 이미지 선택/미리보기 가로 배치 -->
+        <div class="mb-2 d-flex align-items-start flex-wrap gap-3">
+          <!-- 지문 -->
+          <div class="d-flex flex-column align-items-center">
+            <button type="button" id="selectStemImageBtn" class="btn btn-outline-secondary btn-sm mb-1">지문 이미지 선택</button>
+            <div class="position-relative">
+              <img id="stemImagePreview" src="" alt="지문 미리보기" class="img-thumbnail" style="max-width: 100px; display: none;">
+              <button type="button" id="clearStemImageBtn" class="btn-close position-absolute top-0 end-0" style="display: none;" aria-label="Remove"></button>
+            </div>
+          </div>
+
+          <!-- 보기 -->
+          <div class="d-flex flex-column align-items-center">
+            <button type="button" id="selectOptionImageBtn" class="btn btn-outline-secondary btn-sm mb-1">보기 이미지 선택</button>
+            <div class="position-relative">
+              <img id="optionImagePreview" src="" alt="보기 미리보기" class="img-thumbnail" style="max-width: 100px; display: none;">
+              <button type="button" id="clearOptionImageBtn" class="btn-close position-absolute top-0 end-0" style="display: none;" aria-label="Remove"></button>
+            </div>
           </div>
         </div>
 
-        <!-- 보기 이미지 선택 -->
-        <div class="mb-2 d-flex align-items-center gap-2">
-          <button type="button" id="selectOptionImageBtn" class="btn btn-outline-secondary btn-sm">보기 이미지 선택</button>
-          <div class="position-relative">
-            <img id="optionImagePreview" src="" alt="미리보기" class="img-thumbnail" style="max-width: 100px; display: none;">
-            <button type="button" id="clearOptionImageBtn" class="btn-close position-absolute top-0 end-0" style="display: none;" aria-label="Remove"></button>
-          </div>
-        </div>
         <div class="mb-2 d-flex align-items-center gap-2"><label class="form-label m-0">점수</label><input type="number" class="form-control form-control-sm w-auto" placeholder="배점"></div>
         <div class="mb-2"><label class="form-label d-block">문제 유형</label>
           <div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="typeToggle" id="objective" checked><label class="form-check-label" for="objective">객관식</label></div>
@@ -65,11 +77,11 @@
         </div>
         <div class="mb-2 d-flex align-items-center gap-2"><label class="form-label m-0">정답</label><input type="text" id="answerInput" class="form-control form-control-sm w-auto" placeholder="정답 입력"></div>
         <div class="option-boxes">
-          <div class="mb-1 d-flex align-items-center gap-2"><div class="option-label">①</div><div id="field-choice1" class="editable-box">선택지 1</div></div>
-          <div class="mb-1 d-flex align-items-center gap-2"><div class="option-label">②</div><div id="field-choice2" class="editable-box">선택지 2</div></div>
-          <div class="mb-1 d-flex align-items-center gap-2"><div class="option-label">③</div><div id="field-choice3" class="editable-box">선택지 3</div></div>
-          <div class="mb-1 d-flex align-items-center gap-2"><div class="option-label">④</div><div id="field-choice4" class="editable-box">선택지 4</div></div>
-          <div class="mb-1 d-flex align-items-center gap-2"><div class="option-label">⑤</div><div id="field-choice5" class="editable-box">선택지 5</div></div>
+          <div class="mb-1 d-flex align-items-center gap-2"><div class="option-label">①</div><div id="field-choice1" class="editable-box" data-placeholder="선택지 1"></div></div>
+          <div class="mb-1 d-flex align-items-center gap-2"><div class="option-label">②</div><div id="field-choice2" class="editable-box" data-placeholder="선택지 2"></div></div>
+          <div class="mb-1 d-flex align-items-center gap-2"><div class="option-label">③</div><div id="field-choice3" class="editable-box" data-placeholder="선택지 3"></div></div>
+          <div class="mb-1 d-flex align-items-center gap-2"><div class="option-label">④</div><div id="field-choice4" class="editable-box" data-placeholder="선택지 4"></div></div>
+          <div class="mb-1 d-flex align-items-center gap-2"><div class="option-label">⑤</div><div id="field-choice5" class="editable-box" data-placeholder="선택지 5"></div></div>
         </div>
       </div>
     </div>
@@ -92,6 +104,25 @@
       </div>
     </div>
   </div>
+  <!-- 아이콘 선택 모달 -->
+  <div class="modal fade" id="iconInsertModal" tabindex="-1" aria-labelledby="iconInsertModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">아이콘 선택</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <input type="file" id="newIconFile" class="form-control form-control-sm">
+            <button type="button" class="btn btn-primary btn-sm" id="uploadIconBtn">아이콘 추가</button>
+          </div>
+          <div id="iconListContainer" class="d-flex flex-wrap gap-2"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 
   <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
   <script th:inline="javascript">
@@ -108,7 +139,98 @@
     const uploadBtn = document.getElementById('uploadImageBtn');
     const fileInput = document.getElementById('newImageFile');
 
+document.getElementById('insertIconBtn').addEventListener('click', () => {
+  loadIconList();
+  new bootstrap.Modal(document.getElementById("iconInsertModal")).show();
+});
 
+async function loadIconList() {
+  const container = document.getElementById("iconListContainer");
+  container.innerHTML = ''; // 초기화
+
+  try {
+    const res = await fetch("/api/icons");
+    if (!res.ok) throw new Error("불러오기 실패");
+
+    const icons = await res.json(); // icons = [{ url: "..." }, ...]
+
+    icons.forEach(icon => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "position-relative";
+
+      const thumb = document.createElement("img");
+      thumb.src = icon.url;
+      thumb.className = 'img-thumbnail';
+      thumb.style.maxWidth = '40px';
+      thumb.style.cursor = 'pointer';
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn-close position-absolute top-0 start-100 translate-middle";
+      delBtn.style.width = "12px";          // 작게
+      delBtn.style.height = "12px";
+      delBtn.style.padding = "0";
+      delBtn.style.opacity = "0.6";         // 살짝 투명
+      delBtn.style.backgroundColor = "white";  // 배경 흰색으로 덜 가리게
+      delBtn.style.borderRadius = "50%";
+      delBtn.style.border = "1px solid #ccc";
+      delBtn.style.zIndex = "10";           // 아이콘 위에 나오게
+
+      delBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (!confirm("정말 삭제하시겠습니까?")) return;
+        const res = await fetch(`/api/icons?url=${encodeURIComponent(icon.url)}`, { method: "DELETE" });
+        if (res.ok) {
+          alert("삭제가 완료되었습니다.");
+          await loadIconList();
+        }
+        else alert("삭제 실패");
+      });
+
+      thumb.addEventListener("click", () => {
+        const range = quill.getSelection(true);
+        quill.clipboard.dangerouslyPasteHTML(range.index, `<img src="${icon.url}" style="height: 1em; vertical-align: middle;">`);
+        bootstrap.Modal.getInstance(document.getElementById("iconInsertModal")).hide();
+      });
+
+      wrapper.appendChild(thumb);
+      wrapper.appendChild(delBtn);
+      container.appendChild(wrapper);
+    });
+  } catch (err) {
+    console.error(err);
+    alert("아이콘을 불러오는 데 실패했습니다.");
+  }
+}
+
+
+const uploadIconBtn = document.getElementById("uploadIconBtn");
+const iconFileInput = document.getElementById("newIconFile");
+
+uploadIconBtn.addEventListener("click", async () => {
+  const file = iconFileInput.files[0];
+  if (!file) {
+    alert("아이콘 파일을 선택해주세요.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await fetch("/api/icons", {
+      method: "POST",
+      body: formData
+    });
+
+    if (!res.ok) throw new Error("업로드 실패");
+
+    iconFileInput.value = "";
+    await loadIconList();  // 목록 갱신
+  } catch (err) {
+    console.error(err);
+    alert("아이콘 업로드 중 오류가 발생했습니다.");
+  }
+});
       // 이미지 제거 이벤트
       document.getElementById("clearStemImageBtn").addEventListener("click", () => {
         const preview = document.getElementById("stemImagePreview");
@@ -157,33 +279,69 @@
     }
   });
 
-    async function loadImageList() {
-      const res = await fetch(`/api/images?csatDate=${questionDTO.csatDate}&subclassId=${questionDTO.subclassId}`);
-      const images = await res.json();
-      imageListContainer.innerHTML = '';
+async function loadImageList() {
+  imageListContainer.innerHTML = ''; // 기존 목록 초기화
 
-      images.forEach(img => {
-        const thumb = document.createElement('img');
-        thumb.src = img.url;
-        thumb.className = 'img-thumbnail';
-        thumb.style.maxWidth = '120px';
-        thumb.style.cursor = 'pointer';
-        thumb.addEventListener('click', () => {
-          if (currentImageTarget === 'field-title') {
-            const preview = document.getElementById("stemImagePreview");
-            preview.src = img.url;
-            preview.style.display = 'block';
-          } else if (currentImageTarget === 'field-choice1') {
-            const preview = document.getElementById("optionImagePreview");
-            preview.src = img.url;
-            preview.style.display = 'block';
-            document.getElementById("clearStemImageBtn").style.display = 'block';
-          }
-          bootstrap.Modal.getInstance(document.getElementById("imageSelectModal")).hide();
-        });
-        imageListContainer.appendChild(thumb);
+  const csatDate = questionDTO.csatDate;
+  const subclassId = questionDTO.subclassId;
+
+  try {
+    const res = await fetch(`/api/images?csatDate=${csatDate}&subclassId=${subclassId}`);
+    if (!res.ok) throw new Error("불러오기 실패");
+
+    const images = await res.json(); // images = [{ url: 'https://...'}, ...]
+
+    images.forEach(img => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "position-relative";
+
+      const thumb = document.createElement('img');
+      thumb.src = img.url;
+      thumb.className = 'img-thumbnail';
+      thumb.style.maxWidth = '120px';
+      thumb.style.cursor = 'pointer';
+
+      const delBtn = document.createElement("button");
+      delBtn.className = "btn btn-danger btn-sm position-absolute top-0 end-0";
+      delBtn.textContent = "X";
+      delBtn.style.fontSize = "0.7rem";
+      delBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        if (!confirm("정말 삭제하시겠습니까?")) return;
+        const res = await fetch(`/api/images?url=${encodeURIComponent(icon.url)}`, { method: "DELETE" });
+        if (res.ok) {
+          alert("삭제가 완료되었습니다.");
+          await loadImageList();
+        }
+        else alert("삭제 실패");
       });
-    }
+
+      thumb.addEventListener("click", () => {
+        if (currentImageTarget === 'field-title') {
+          const preview = document.getElementById("stemImagePreview");
+          preview.src = img.url;
+          preview.style.display = 'block';
+          document.getElementById("clearStemImageBtn").style.display = 'block';
+        } else if (currentImageTarget === 'field-choice1') {
+          const preview = document.getElementById("optionImagePreview");
+          preview.src = img.url;
+          preview.style.display = 'block';
+          document.getElementById("clearOptionImageBtn").style.display = 'block';
+        }
+        bootstrap.Modal.getInstance(document.getElementById("imageSelectModal")).hide();
+      });
+
+      wrapper.appendChild(thumb);
+      wrapper.appendChild(delBtn);
+      imageListContainer.appendChild(wrapper);
+    });
+  } catch (err) {
+    console.error(err);
+    alert("이미지를 불러오는 데 실패했습니다.");
+  }
+}
+
+
 
     uploadBtn.addEventListener('click', async () => {
       const file = fileInput.files[0];
@@ -229,7 +387,6 @@
     }
 
     document.addEventListener("DOMContentLoaded", function () {
-      let quill;
       document.getElementById("selectStemImageBtn").addEventListener("click", () => openImageSelectModal("field-title"));
       document.getElementById("selectOptionImageBtn").addEventListener("click", () => openImageSelectModal("field-choice1"));
 
@@ -286,6 +443,45 @@
         answerInput.type = isObjective ? "number" : "text";
         answerInput.placeholder = "정답 입력";
       }
+      // 문제 제목
+      document.getElementById("field-title").innerHTML = questionDTO.questionTitle || "";
+
+      // 선택지들
+      for (let i = 1; i <= 5; i++) {
+        const choiceId = `field-choice${i}`;
+        document.getElementById(choiceId).innerHTML = questionDTO[`option${i}`] || "";
+      }
+
+      // 점수
+      document.querySelector("input[type='number']").value = questionDTO.score ?? "";
+
+      // 정답
+      document.getElementById("answerInput").value = questionDTO.answer ?? "";
+
+      // 문제 유형
+      if (questionDTO.questionType) {
+        document.getElementById("objective").checked = true;
+      } else {
+        document.getElementById("subjective").checked = true;
+      }
+      updateMode(); // 라디오 반영 후 옵션 영역 토글
+
+      // 이미지 미리보기 세팅
+      if (questionDTO.questionArticle) {
+        const preview = document.getElementById("stemImagePreview");
+        preview.src = questionDTO.questionArticle;
+        preview.style.display = "block";
+        document.getElementById("clearStemImageBtn").style.display = "block";
+      }
+
+      if (questionDTO.questionContext) {
+        const preview = document.getElementById("optionImagePreview");
+        preview.src = questionDTO.questionContext;
+        preview.style.display = "block";
+        document.getElementById("clearOptionImageBtn").style.display = "block";
+      }
+
+
     });
   </script>
 </main>

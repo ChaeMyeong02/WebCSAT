@@ -28,4 +28,8 @@ public class CsatDate {
 
     @OneToMany(mappedBy = "csatDate", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ImageMeta> imageMetas;
+
+    public CsatDate(String csatDate) {
+        this.csatDate = csatDate;
+    }
 }

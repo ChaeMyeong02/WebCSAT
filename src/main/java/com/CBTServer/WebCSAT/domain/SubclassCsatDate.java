@@ -19,4 +19,9 @@ public class SubclassCsatDate {
     @MapsId("csatDate")
     @JoinColumn(name = "csat_date")
     private CsatDate csatDate;
+
+    public SubclassCsatDate(Subclass subclass, CsatDate csatDate) {
+        this.subclass = subclass;
+        this.csatDate = csatDate;
+    }
 }
