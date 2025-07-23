@@ -2,7 +2,6 @@ package com.CBTServer.WebCSAT.service;
 
 import com.CBTServer.WebCSAT.domain.*;
 import com.CBTServer.WebCSAT.dto.QuestionDTO;
-import com.CBTServer.WebCSAT.dto.SubjectDTO;
 import com.CBTServer.WebCSAT.repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RequiredArgsConstructor
@@ -119,40 +119,87 @@ public class QuestionService {
     }
 
     @Transactional
-    public void createMockQuestion(String csatDate, Long subjectId, Long subclassId) {
+    public void createMockQuestion(
+            String csatDate,
+            Long subjectId,
+            Long subclassId,
+            List<Integer> cuts, // cut1~cut9 입력 받기
+            Map<Long, String> subclassListeningUrlMap // subclassId -> S3 mp3 URL 매핑
+    ) {
         Subject subject = subjectRepository.findById(subjectId).orElseThrow();
         Subclass subclass = subclassRepository.findById(subclassId).orElseThrow();
         CsatDate cD = csatDateRepository.findById(csatDate).orElseThrow();
+
         List<Subclass> subclassList = new ArrayList<>();
-        if(subject.getOption() == 1) {
+        if (subject.getOption() == 1) {
             List<Subclass> sL = subclassRepository.findAllBySubject_SubjectId(subjectId);
             for (Subclass s : sL) {
-                if(!s.isOptional()) subclassList.add(s);
+                if (!s.isOptional()) subclassList.add(s);
             }
         }
         subclassList.add(subclass);
 
-        int globalNum = 1; // 과목 전체에서 공유되는 문제 번호
+        int globalNum = 1;
 
         for (Subclass s : subclassList) {
-            int count = s.getCount(); // 해당 세부과목에서 생성할 문제 수
-            Optional<SubclassCsatDate> sccd = subclassCsatDateRepository.findById_SubclassIdAndId_CsatDate(s.getSubclassId(),csatDate);
-            if(sccd.isPresent()) {
+            int count = s.getCount();
+            Optional<SubclassCsatDate> existing = subclassCsatDateRepository.findById_SubclassIdAndId_CsatDate(s.getSubclassId(), csatDate);
+            if (existing.isPresent()) {
                 globalNum += count;
                 continue;
             }
+
             SubclassCsatDateId id = new SubclassCsatDateId(s.getSubclassId(), cD.getCsatDate());
             SubclassCsatDate entity = new SubclassCsatDate();
             entity.setId(id);
             entity.setSubclass(s);
             entity.setCsatDate(cD);
+
+            if(s.isOptional()) {
+                // 상대평가면 입력받은 cuts 사용
+                if (subject.isRelative()) {
+                    if (cuts == null || cuts.size() != 9)
+                        throw new IllegalArgumentException("등급컷은 1~9등급까지 모두 입력해야 합니다.");
+                    entity.setCut1(cuts.get(0));
+                    entity.setCut2(cuts.get(1));
+                    entity.setCut3(cuts.get(2));
+                    entity.setCut4(cuts.get(3));
+                    entity.setCut5(cuts.get(4));
+                    entity.setCut6(cuts.get(5));
+                    entity.setCut7(cuts.get(6));
+                    entity.setCut8(cuts.get(7));
+                    entity.setCut9(cuts.get(8));
+                } else {
+                    // 절대평가면 고정값
+                    entity.setCut1(90);
+                    entity.setCut2(80);
+                    entity.setCut3(70);
+                    entity.setCut4(60);
+                    entity.setCut5(50);
+                    entity.setCut6(40);
+                    entity.setCut7(30);
+                    entity.setCut8(20);
+                    entity.setCut9(10);
+                }
+            }
+
+            // 듣기 과목이면 URL 지정
+            if (s.isListening()) {
+                String url = subclassListeningUrlMap.get(s.getSubclassId());
+                if (url == null || url.isBlank()) {
+                    throw new IllegalArgumentException("듣기 과목에는 반드시 MP3를 지정해야 합니다.");
+                }
+                entity.setListeningUrl(url);
+            }
+
             subclassCsatDateRepository.save(entity);
+
             for (int i = 0; i < count; i++) {
                 Question question = Question.builder()
                         .subject(subject)
                         .subclass(s)
                         .csatDate(cD)
-                        .num(globalNum++) // 1부터 전역적으로 증가
+                        .num(globalNum++)
                         .questionType(true)
                         .build();
                 questionRepository.save(question);

@@ -20,6 +20,36 @@ public class SubclassCsatDate {
     @JoinColumn(name = "csat_date")
     private CsatDate csatDate;
 
+    @Column(name = "listening_url")
+    private String listeningUrl;
+
+    @Column(name = "cut1")
+    private Integer cut1;
+
+    @Column(name = "cut2")
+    private Integer cut2;
+
+    @Column(name = "cut3")
+    private Integer cut3;
+
+    @Column(name = "cut4")
+    private Integer cut4;
+
+    @Column(name = "cut5")
+    private Integer cut5;
+
+    @Column(name = "cut6")
+    private Integer cut6;
+
+    @Column(name = "cut7")
+    private Integer cut7;
+
+    @Column(name = "cut8")
+    private Integer cut8;
+
+    @Column(name = "cut9")
+    private Integer cut9;
+
     public SubclassCsatDate(Subclass subclass, CsatDate csatDate) {
         this.subclass = subclass;
         this.csatDate = csatDate;

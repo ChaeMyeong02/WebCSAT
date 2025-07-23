@@ -1,21 +1,26 @@
 package com.CBTServer.WebCSAT.controller;
 
 import com.CBTServer.WebCSAT.domain.Question;
+import com.CBTServer.WebCSAT.domain.SubclassCsatDate;
 import com.CBTServer.WebCSAT.domain.Subject;
 import com.CBTServer.WebCSAT.dto.QuestionDTO;
+import com.CBTServer.WebCSAT.repository.SubclassCsatDateRepository;
 import com.CBTServer.WebCSAT.service.QuestionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @RestController
 public class QuestionApiController {
     private final QuestionService questionService;
+    private final SubclassCsatDateRepository subclassCsatDateRepository;
 
     @GetMapping("/api/question/{questionId}")
     public ResponseEntity<?> getQuestion(@PathVariable Long questionId) {
@@ -65,8 +70,42 @@ public class QuestionApiController {
     }
 
     @PostMapping("/api/question/mock")
-    public ResponseEntity<?> addMockQuestion(@RequestParam("csatDate") String csatDate, @RequestParam("subjectId") Long subjectId, @RequestParam("subclassId") Long subclassId) {
-        questionService.createMockQuestion(csatDate, subjectId, subclassId);
-        return ResponseEntity.ok(Map.of("csatDate", csatDate, "subjectId", subjectId, "subclassId", subclassId));
+    public ResponseEntity<?> addMockQuestion(@RequestBody Map<String, Object> body) {
+        String csatDate = (String) body.get("csatDate");
+        Long subjectId = ((Number) body.get("subjectId")).longValue();
+        Long subclassId = ((Number) body.get("subclassId")).longValue();
+
+        Optional<SubclassCsatDate> exists = subclassCsatDateRepository.findById_SubclassIdAndId_CsatDate(subclassId, csatDate);
+
+        if (exists.isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("이미 해당 모의고사 문제가 존재합니다.");
+        }
+
+        // 등급컷 추출
+        List<Integer> cuts = null;
+        if (body.containsKey("cuts")) {
+            cuts = ((List<?>) body.get("cuts")).stream()
+                    .map(c -> ((Number) c).intValue())
+                    .toList();
+        }
+
+        // 듣기 URL 매핑 추출
+        Map<Long, String> subclassListeningUrlMap = new HashMap<>();
+        if (body.containsKey("listeningUrlMap")) {
+            Map<?, ?> rawMap = (Map<?, ?>) body.get("listeningUrlMap");
+            for (Map.Entry<?, ?> entry : rawMap.entrySet()) {
+                Long key = Long.parseLong(entry.getKey().toString());
+                String val = entry.getValue().toString();
+                subclassListeningUrlMap.put(key, val);
+            }
+        }
+
+        try {
+            questionService.createMockQuestion(csatDate, subjectId, subclassId, cuts, subclassListeningUrlMap);
+            return ResponseEntity.ok(Map.of("csatDate", csatDate, "subjectId", subjectId, "subclassId", subclassId));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("듣기 과목에는 반드시 MP3를 지정해야 합니다.");
+        }
     }
+
 }

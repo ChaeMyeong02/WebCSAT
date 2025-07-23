@@ -1,8 +1,6 @@
 package com.CBTServer.WebCSAT.repository;
 
 import com.CBTServer.WebCSAT.domain.Exam;
-import com.CBTServer.WebCSAT.domain.SubclassCsatDate;
-import com.CBTServer.WebCSAT.domain.SubclassCsatDateId;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

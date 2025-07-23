@@ -34,6 +34,9 @@ public class Subject {
     @Column(name = "min")
     private int min;
 
+    @Column(name = "relative")
+    private boolean relative;
+
     @OneToMany(mappedBy = "subject", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Subclass> subclassList;
 
