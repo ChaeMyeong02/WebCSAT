@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>문제은행 시험</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+        background: #f8f9fa;
+        padding: 2rem;
+        font-family: Arial, sans-serif;
+    }
+
+    .question-container {
+        background: white;
+        padding: 2rem;
+        border-radius: 1rem;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        max-width: 800px;
+        margin: auto;
+    }
+
+    .choice-label {
+        display: block;
+        padding: 0.5rem 1rem;
+        border: 1px solid #ccc;
+        border-radius: 0.5rem;
+        margin-bottom: 0.5rem;
+        cursor: pointer;
+    }
+
+    input[type="radio"] {
+        display: none;
+    }
+
+    input[type="radio"]:checked + .choice-label {
+        background-color: #3498db;
+        color: white;
+        font-weight: bold;
+    }
+
+    .btn-area {
+        text-align: center;
+        margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="question-container">
+  <form th:action="@{/submitBankAnswer}" method="post">
+    <input type="hidden" name="questionId" th:value="${question.id}" />
+    <input type="hidden" name="subjectId" th:value="${subjectId}" />
+    <input type="hidden" name="subclassId" th:value="${subclassId}" />
+
+    <h4 th:text="'Q. ' + ${question.questionTitle}"></h4>
+
+    <div th:if="${question.questionArticle != null}">
+      <img th:src="${question.questionArticle.url}" alt="문제 이미지" style="max-width:100%; max-height:300px;">
+    </div>
+
+    <p th:text="${question.questionContext}"></p>
+
+    <div>
+      <input type="radio" id="opt1" name="answer" value="1">
+      <label class="choice-label" for="opt1">① <span th:utext="${question.option1}"></span></label>
+    </div>
+    <div>
+      <input type="radio" id="opt2" name="answer" value="2">
+      <label class="choice-label" for="opt2">② <span th:utext="${question.option2}"></span></label>
+    </div>
+    <div>
+      <input type="radio" id="opt3" name="answer" value="3">
+      <label class="choice-label" for="opt3">③ <span th:utext="${question.option3}"></span></label>
+    </div>
+    <div>
+      <input type="radio" id="opt4" name="answer" value="4">
+      <label class="choice-label" for="opt4">④ <span th:utext="${question.option4}"></span></label>
+    </div>
+    <div>
+      <input type="radio" id="opt5" name="answer" value="5">
+      <label class="choice-label" for="opt5">⑤ <span th:utext="${question.option5}"></span></label>
+    </div>
+
+    <div class="btn-area">
+      <button type="submit" class="btn btn-primary">제출하고 다음 문제</button>
+    </div>
+  </form>
+</div>
+
+</body>
+</html>

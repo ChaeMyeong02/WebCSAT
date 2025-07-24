@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>시험 결과</title>
+</head>
+<body>
+
+<h2>시험 결과</h2>
+
+<div th:if="${exam != null}">
+    <p><strong>응시자:</strong> <span th:text="${exam.user.nickname}"></span></p>
+    <p><strong>부과목:</strong> <span th:text="${exam.subclass.name}"></span></p>
+    <p><strong>응시 월:</strong> <span th:text="${exam.csatDate}"></span></p>
+    <p><strong>응시 일시:</strong> <span th:text="${#temporals.format(exam.testDate, 'yyyy-MM-dd HH:mm')}"></span></p>
+    <p><strong>소요 시간:</strong> <span th:text="${exam.duration.toMinutes()}"></span> 분</p>
+    <p><strong>점수:</strong> <span th:text="${exam.result}"></span> 점</p>
+</div>
+
+<div th:if="${exam == null}">
+    <p>시험 정보를 불러올 수 없습니다.</p>
+</div>
+
+<br/>
+<a th:href="@{/selectSubject}">다시 시험 보기</a>
+
+</body>
+</html>

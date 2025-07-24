@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>문제 리스트</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <style>
+    .gradient-custom {
+      background: linear-gradient(to right, #0062E6, #33AEFF);
+    }
+  </style>
+</head>
+<body class="gradient-custom d-flex flex-column min-vh-100">
+<th:block th:replace="~{fragments/commonHeader :: header}"></th:block>
+
+<main class="container flex-grow-1 py-5">
+  <h2 class="text-white text-center mb-4">문제 리스트</h2>
+
+  <form id="filterForm" class="row mb-2 g-3 align-items-end">
+    <div class="col-md-3">
+      <label for="filterSubject" class="form-label">과목</label>
+      <select class="form-select" id="filterSubject" name="subjectId">
+        <option value="">전체</option>
+        <option th:each="entry : ${subjectNameMap.entrySet()}"
+                th:value="${entry.key}"
+                th:text="${entry.value}"
+                th:selected="${entry.key == selectedSubjectId}"></option>
+      </select>
+    </div>
+
+    <div class="col-md-3">
+      <label for="filterSubclass" class="form-label">세부과목</label>
+      <select class="form-select" id="filterSubclass" name="subclassId">
+        <option value="">전체</option>
+        <option th:each="entry : ${subclassNameMap.entrySet()}"
+                th:value="${entry.key}"
+                th:text="${entry.value}"
+                th:selected="${entry.key == selectedSubclassId}"></option>
+      </select>
+    </div>
+
+    <div class="col-md-3">
+      <label for="csatDateSelect" class="form-label">시험 날짜</label>
+      <select class="form-select" id="csatDateSelect" name="csatDate">
+        <option value="">전체</option>
+        <option th:each="date : ${csatDateList}"
+                th:value="${date.csatDate}"
+                th:text="${date.csatDate}"
+                th:selected="${date.csatDate == selectedDate}"></option>
+      </select>
+    </div>
+
+    <div class="col-md-2">
+      <label for="filterType" class="form-label">문제 유형</label>
+      <select class="form-select" id="filterType">
+        <option value="">전체</option>
+        <option value="객관식">객관식</option>
+        <option value="주관식">주관식</option>
+      </select>
+    </div>
+
+    <div class="col-md-1 text-end">
+      <button type="submit" class="btn btn-primary w-100">검색</button>
+    </div>
+  </form>
+
+
+
+  <!-- ✅ 문제 리스트 테이블 -->
+  <div class="table-responsive bg-white rounded shadow">
+    <table class="table table-bordered table-hover mb-0" id="questionTable">
+      <thead class="table-primary text-center">
+      <tr>
+        <th>문제코드</th>
+        <th>과목명</th>
+        <th>세부과목명</th>
+        <th>출제년도</th>
+        <th>문제 번호</th>
+        <th>문제 형식</th>
+        <th>문제 점수</th>
+        <th>관리</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr th:each="q : ${questionDTOList}" class="text-center"
+          th:data-subject-id="${q.subjectId}"
+          th:data-subclass-id="${q.subclassId}"
+          th:data-csat-date="${q.csatDate}"
+          th:data-question-type="${q.questionType ? '객관식' : '주관식'}">
+        <td th:text="${q.questionId}"></td>
+        <td th:text="${subjectNameMap[q.subjectId]}"></td>
+        <td th:text="${subclassNameMap[q.subclassId]}"></td>
+        <td th:text="${q.csatDate}"></td>
+        <td th:text="${q.num == 0 ? '-' : q.num}"></td>
+        <td th:text="${q.questionType ? '객관식' : '주관식'}"></td>
+        <td th:text="${q.score} + '점'"></td>
+        <td>
+          <a th:href="@{/admin/question/edit(questionId=${q.questionId})}" class="btn btn-sm btn-warning">수정</a>
+          <button th:if="${q.num == 0}"
+                  th:attr="data-id=${q.questionId}"
+                  class="btn btn-sm btn-danger ms-1 btn-delete">삭제</button>
+        </td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<script src="/js/token.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const rows = document.querySelectorAll('#questionTable tbody tr');
+    const typeSelect = document.getElementById('filterType');
+
+    document.querySelectorAll('.btn-delete').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const questionId = e.target.dataset.id;
+        if (!confirm(`문제은행 문제를 삭제하시겠습니까? (ID: ${questionId})`)) return;
+
+        try {
+          const res = await fetch(`/api/question/${questionId}`, {
+            method: 'DELETE'
+          });
+          if (!res.ok) throw new Error("삭제 실패");
+          alert("삭제 완료되었습니다.");
+          window.location.reload(); // 새로고침
+        } catch (err) {
+          console.error(err);
+          alert("삭제 중 오류가 발생했습니다.");
+        }
+      });
+    });
+
+    document.getElementById('filterForm').addEventListener('submit', function (e) {
+      e.preventDefault(); // 기본 form 제출 막기
+
+      const subjectId = document.getElementById('filterSubject').value;
+      const subclassId = document.getElementById('filterSubclass').value;
+      const csatDate = document.getElementById('csatDateSelect').value;
+
+      const params = new URLSearchParams();
+
+      if (subjectId) params.append("subjectId", subjectId);
+      if (subclassId) params.append("subclassId", subclassId);
+      if (csatDate) params.append("csatDate", csatDate);
+
+      const baseUrl = "/admin/question/list";
+      window.location.href = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+    });
+
+    function applyClientFilter() {
+      const typeVal = typeSelect.value;
+      rows.forEach(row => {
+        const rowType = row.dataset.questionType;
+        const matches = !typeVal || rowType.trim() === typeVal;
+        row.style.display = matches ? '' : 'none';
+      });
+    }
+
+    function resetFilters() {
+      typeSelect.value = "";
+      applyClientFilter();
+    }
+
+    typeSelect.addEventListener('change', applyClientFilter);
+    window.resetFilters = resetFilters;
+    applyClientFilter(); // 페이지 로딩 시 적용
+  });
+</script>
+
+</body>
+</html>
