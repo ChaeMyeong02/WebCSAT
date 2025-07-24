@@ -61,7 +61,7 @@ public class ImageMetaApiController {
     @DeleteMapping("/api/images")
     public ResponseEntity<?> deleteImage(@RequestParam("url") String url) {
         try {
-            imageService.deleteImage(URLDecoder.decode(url, StandardCharsets.UTF_8));
+            imageService.deleteImage(url);
             return ResponseEntity.ok().build();
         } catch (IllegalStateException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));

@@ -308,7 +308,7 @@ async function loadImageList() {
       delBtn.addEventListener("click", async (e) => {
         e.stopPropagation();
         if (!confirm("정말 삭제하시겠습니까?")) return;
-        const res = await fetch(`/api/images?url=${encodeURIComponent(icon.url)}`, { method: "DELETE" });
+        const res = await fetch(`/api/images?url=${img.url}`, { method: "DELETE" });
         if (res.ok) {
           alert("삭제가 완료되었습니다.");
           await loadImageList();
