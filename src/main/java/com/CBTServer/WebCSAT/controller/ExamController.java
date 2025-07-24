@@ -70,7 +70,6 @@ public class ExamController {
         try {
             List<Question> questions = questionService.getQuestions(subclassId, csatDate);
 
-
             // ✅ 부과목 가져오기
             Subclass subclass = subclassRepository.findById(subclassId).orElse(null);
             String subclassName = subclass != null ? subclass.getSubclassName() : "null";

@@ -46,6 +46,19 @@
             min-height: 100vh; /* 필요시 최소 높이만 설정 */
         }
 
+        .article-box {
+    background: #f8f9fa;
+    border-left: 4px solid #2980b9;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    border-radius: 6px;
+    padding: 1rem;
+    margin-top : 1.5rem;
+    margin-bottom: -1.5rem;
+    transform: translateY(-20px);
+    position: relative;
+    z-index: 2;
+}
+
 
         .question-section {
     flex: 3;
@@ -60,10 +73,11 @@
 }
 
         .question-box {
-            border: 1px solid #ccc;
-            padding: 0.75rem;
-            font-size: 0.9rem;
-        }
+    border: 1px solid #ccc;
+    padding: 1.5rem 0.75rem 0.75rem 0.75rem; /* 위 여백 늘리기 */
+    font-size: 0.9rem;
+    margin-bottom: 1rem; /* 박스 간 간격 추가 */
+}
 
         .question-box p {
             margin: 0;
@@ -129,11 +143,17 @@
             <!-- 왼쪽 열 -->
             <div style="flex: 1; padding: 1rem;">
                 <div th:each="q, iStat : ${questions}" th:if="${iStat.index} < 10" class="question-box">
-                    <p th:utext="'Q' + ${iStat.index + 1} + '. ' + ${q.questionTitle}"></p>
-
-                    <div th:if="${q.questionArticle != null}">
-                        <img th:src="${q.questionArticle.url}" alt="문제 이미지" style="max-width:100%; max-height:300px;">
+                    <!-- 공통 지문 출력 (이전 문제와 다를 때만) -->
+                    <div th:if="${q.questionArticle != null and (iStat.index == 0 or q.questionArticle.url != questions[iStat.index - 1].questionArticle?.url)}"
+                         class="article-box"
+                         style="transform: translateY(-40px); margin-bottom: -20px;
+            padding: 1rem; background: #f0f0f0; border: 1px solid #bbb;
+            z-index: 2; position: relative;">
+                        <p style="font-weight: bold;">📘 공통 지문</p>
+                        <img th:src="${q.questionArticle.url}" alt="공통 지문" style="max-width:100%; max-height:300px;">
                     </div>
+
+                    <p th:utext="'Q' + ${iStat.index + 1} + '. ' + ${q.questionTitle}"></p>
 
                     <p th:text="${q.questionContext}"></p>
 
@@ -193,14 +213,20 @@
 
             <!-- 오른쪽 열 -->
             <div style="flex: 1; padding: 1rem;">
+
                 <div th:each="q, iStat : ${questions}" th:if="${iStat.index} >= 10" class="question-box">
 
-                    <p th:utext="'Q' + ${iStat.index + 1} + '. ' + ${q.questionTitle}"></p>
-
-                    <div th:if="${q.questionArticle != null}">
-                        <img th:src="${q.questionArticle.url}" alt="문제 이미지" style="max-width:100%; max-height:300px;">
+                    <!-- 공통 지문 출력 (이전 문제와 다를 때만) -->
+                    <div th:if="${q.questionArticle != null and (iStat.index == 0 or q.questionArticle.url != questions[iStat.index - 1].questionArticle?.url)}"
+                         class="article-box"
+                         style="transform: translateY(-40px); margin-bottom: -20px;
+            padding: 1rem; background: #f0f0f0; border: 1px solid #bbb;
+            z-index: 2; position: relative;">
+                        <p style="font-weight: bold;">📘 공통 지문</p>
+                        <img th:src="${q.questionArticle.url}" alt="공통 지문" style="max-width:100%; max-height:300px;">
                     </div>
 
+                    <p th:utext="'Q' + ${iStat.index + 1} + '. ' + ${q.questionTitle}"></p>
                     <p th:text="${q.questionContext}"></p>
 
                     <div>
@@ -278,6 +304,8 @@
                 <button type="button" th:attr="data-index=${iStat.index}, data-value=5"
                         onclick="selectAnswer(this)">⑤</button>
             </div>
+        </div>
+    </div>
         </div>
     </div>
 

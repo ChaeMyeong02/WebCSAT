@@ -75,52 +75,52 @@
     </div>
 </main>
 
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const subjectSelect = document.getElementById("subject-select");
-      const subclassSelect = document.getElementById("subclass-select");
-      const csatDateSelect = document.getElementById("csat-date-select");
+<!--<script>-->
+<!--    document.addEventListener("DOMContentLoaded", function () {-->
+<!--      const subjectSelect = document.getElementById("subject-select");-->
+<!--      const subclassSelect = document.getElementById("subclass-select");-->
+<!--      const csatDateSelect = document.getElementById("csat-date-select");-->
 
-      // 과목 변경 시 부과목 초기화
-      subjectSelect.addEventListener("change", function () {
-        const subjectId = this.value;
-        subclassSelect.innerHTML = "<option value=''>부과목 선택</option>";
-        csatDateSelect.innerHTML = "<option value=''>응시 월 선택</option>";
+<!--      // 과목 변경 시 부과목 초기화-->
+<!--      subjectSelect.addEventListener("change", function () {-->
+<!--        const subjectId = this.value;-->
+<!--        subclassSelect.innerHTML = "<option value=''>부과목 선택</option>";-->
+<!--        csatDateSelect.innerHTML = "<option value=''>응시 월 선택</option>";-->
 
-        if (subjectId) {
-          fetch(`/api/subclasses?subjectId=${subjectId}`)
-            .then(response => response.json())
-            .then(data => {
-              data.forEach(subclass => {
-                const opt = document.createElement("option");
-                opt.value = subclass.subclassId;
-                opt.text = subclass.subclassName;
-                subclassSelect.appendChild(opt);
-              });
-            });
-        }
-      });
+<!--        if (subjectId) {-->
+<!--          fetch(`/api/subclasses?subjectId=${subjectId}`)-->
+<!--            .then(response => response.json())-->
+<!--            .then(data => {-->
+<!--              data.forEach(subclass => {-->
+<!--                const opt = document.createElement("option");-->
+<!--                opt.value = subclass.subclassId;-->
+<!--                opt.text = subclass.subclassName;-->
+<!--                subclassSelect.appendChild(opt);-->
+<!--              });-->
+<!--            });-->
+<!--        }-->
+<!--      });-->
 
-      // 부과목 변경 시 csatDate 초기화
-      subclassSelect.addEventListener("change", function () {
-        const subclassId = this.value;
-        csatDateSelect.innerHTML = "<option value=''>응시 월 선택</option>";
+<!--      // 부과목 변경 시 csatDate 초기화-->
+<!--      subclassSelect.addEventListener("change", function () {-->
+<!--        const subclassId = this.value;-->
+<!--        csatDateSelect.innerHTML = "<option value=''>응시 월 선택</option>";-->
 
-        if (subclassId) {
-          fetch(`/api/csatDates?subclassId=${subclassId}`)
-            .then(response => response.json())
-            .then(data => {
-              data.forEach(date => {
-                const opt = document.createElement("option");
-                opt.value = date;
-                opt.text = date;
-                csatDateSelect.appendChild(opt);
-              });
-            });
-        }
-      });
-    });
-</script>
-
+<!--        if (subclassId) {-->
+<!--          fetch(`/api/csatDates?subclassId=${subclassId}`)-->
+<!--            .then(response => response.json())-->
+<!--            .then(data => {-->
+<!--              data.forEach(date => {-->
+<!--                const opt = document.createElement("option");-->
+<!--                opt.value = date;-->
+<!--                opt.text = date;-->
+<!--                csatDateSelect.appendChild(opt);-->
+<!--              });-->
+<!--            });-->
+<!--        }-->
+<!--      });-->
+<!--    });-->
+<!--</script>-->
+<script src="/js/selectSubject.js"></script>
 </body>
 </html>

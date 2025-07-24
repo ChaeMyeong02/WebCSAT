@@ -25,6 +25,7 @@ public class QuestionDTO {
     private Long subjectId;
     private Long subclassId;
 
+
     public QuestionDTO(Question question) {
         this.questionId = question.getQuestionId();
         this.num = question.getNum();
