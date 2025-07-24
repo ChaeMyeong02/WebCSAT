@@ -1,7 +1,11 @@
 package com.CBTServer.WebCSAT.service;
 
+import com.CBTServer.WebCSAT.domain.CsatDate;
+import com.CBTServer.WebCSAT.domain.Question;
 import com.CBTServer.WebCSAT.domain.Subclass;
 import com.CBTServer.WebCSAT.domain.Subject;
+import com.CBTServer.WebCSAT.dto.CsatDateDTO;
+import com.CBTServer.WebCSAT.dto.QuestionDTO;
 import com.CBTServer.WebCSAT.dto.SubclassDTO;
 import com.CBTServer.WebCSAT.dto.SubjectDTO;
 import com.CBTServer.WebCSAT.repository.SubclassRepository;
@@ -22,7 +26,7 @@ public class SubjectSubclassService {
         List<Subject> subjectList = subjectRepository.findAll();
         List<SubjectDTO> dtoList = new ArrayList<>();
         for(Subject s : subjectList) {
-            SubjectDTO dto = new SubjectDTO(s.getSubjectId(), s.getSubjectName(), s.getOption(), s.getMin(), s.isRelative());
+            SubjectDTO dto = new SubjectDTO(s.getSubjectId(), s.getSubjectName(), s.getOption(), s.getMin());
             dtoList.add(dto);
         }
         return dtoList;
@@ -37,7 +41,6 @@ public class SubjectSubclassService {
                     .subclassName(s.getSubclassName())
                     .count(s.getCount())
                     .optional(s.isOptional())
-                    .listening(s.isListening())
                     .subjectId(s.getSubject() != null ? s.getSubject().getSubjectId() : null)
                     .build();
             dtoList.add(dto);
@@ -50,9 +53,8 @@ public class SubjectSubclassService {
         subject.setSubjectName(subjectDTO.getSubjectName());
         subject.setMin(subjectDTO.getMin());
         subject.setOption(subjectDTO.getOption());
-        subject.setRelative(subjectDTO.isRelative());
         Subject saved = subjectRepository.save(subject);
-        return new SubjectDTO(saved.getSubjectId(), saved.getSubjectName(), saved.getOption(), saved.getMin(), saved.isRelative());
+        return new SubjectDTO(saved.getSubjectId(), saved.getSubjectName(), saved.getOption(), saved.getMin());
     }
 
     public SubclassDTO saveSubclass(SubclassDTO subclassDTO) {
@@ -64,7 +66,6 @@ public class SubjectSubclassService {
         subclass.setSubject(subject);
         subclass.setOptional(subclassDTO.isOptional());
         subclass.setCount(subclassDTO.getCount());
-        subclass.setListening(subclassDTO.isListening());
 
         Subclass saved = subclassRepository.save(subclass);
 
@@ -73,14 +74,13 @@ public class SubjectSubclassService {
                 .subclassName(saved.getSubclassName())
                 .count(saved.getCount())
                 .optional(saved.isOptional())
-                .listening(saved.isListening())
                 .subjectId(saved.getSubject() != null ? saved.getSubject().getSubjectId() : null)
                 .build();
     }
 
     public SubjectDTO findBySubjectId(Long subjectId) {
         Subject subject = subjectRepository.findById(subjectId).orElseThrow(() -> new IllegalArgumentException(subjectId + " : 존재하지 않는 ID 입니다."));
-        return new SubjectDTO(subject.getSubjectId(), subject.getSubjectName(), subject.getOption(), subject.getMin(), subject.isRelative());
+        return new SubjectDTO(subject.getSubjectId(), subject.getSubjectName(), subject.getOption(), subject.getMin());
     }
 
     public SubclassDTO findBySubclassId(Long subclassId) {
@@ -90,7 +90,6 @@ public class SubjectSubclassService {
                 .subclassName(subclass.getSubclassName())
                 .count(subclass.getCount())
                 .optional(subclass.isOptional())
-                .listening(subclass.isListening())
                 .subjectId(subclass.getSubject() != null ? subclass.getSubject().getSubjectId() : null)
                 .build();
     }
@@ -102,10 +101,9 @@ public class SubjectSubclassService {
         subject.setSubjectName(subjectDTO.getSubjectName());
         subject.setMin(subjectDTO.getMin());
         subject.setOption(subjectDTO.getOption());
-        subject.setRelative(subjectDTO.isRelative());
 
         Subject updated = subjectRepository.save(subject);
-        return new SubjectDTO(updated.getSubjectId(), updated.getSubjectName(), updated.getOption(), updated.getMin(), updated.isRelative());
+        return new SubjectDTO(updated.getSubjectId(), updated.getSubjectName(), updated.getOption(), updated.getMin());
     }
 
     public SubclassDTO updateSubclass(Long subclassId, SubclassDTO subclassDTO) {
@@ -114,7 +112,6 @@ public class SubjectSubclassService {
         subclass.setSubclassName(subclassDTO.getSubclassName());
         subclass.setCount(subclassDTO.getCount());
         subclass.setOptional(subclassDTO.isOptional());
-        subclass.setListening(subclassDTO.isListening());
 
         if (subclassDTO.getSubjectId() != null) {
             Subject newSubject = subjectRepository.findById(subclassDTO.getSubjectId())
@@ -129,7 +126,6 @@ public class SubjectSubclassService {
                 .subclassName(updated.getSubclassName())
                 .count(updated.getCount())
                 .optional(updated.isOptional())
-                .listening(updated.isListening())
                 .subjectId(updated.getSubject() != null ? updated.getSubject().getSubjectId() : null)
                 .build();
     }

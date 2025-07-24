@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RequiredArgsConstructor
@@ -46,5 +47,11 @@ public class QuestionApiController {
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "존재하지 않는 문제 번호입니다."));
         }
+    }
+
+    @GetMapping("/api/csatDates")
+    public ResponseEntity<List<String>> getAvailableDatesBySubclass(@RequestParam Long subclassId) {
+        List<String> dates = questionService.getAvailableCsatDatesBySubclass(subclassId);
+        return ResponseEntity.ok(dates);
     }
 }

@@ -28,15 +28,6 @@
               <li><a class="dropdown-item" href="#">회원탈퇴</a></li>
             </ul>
           </li>
-          <li id="adminMenu" class="nav-item dropdown" style="display: none;">
-            <a class="nav-link dropdown-toggle text-white" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              문제관리
-            </a>
-            <ul class="dropdown-menu">
-              <li><a class="dropdown-item" href="/admin/question/add">문제추가</a></li>
-              <li><a class="dropdown-item" href="/admin/question/list">문제목록/수정</a></li>
-            </ul>
-          </li>
         </ul>
       </div>
     </div>
@@ -56,7 +47,18 @@
         const userRole = payload.role || payload.auth || null; // 서버 발급 구조에 따라 'role' 또는 'auth' 키 확인
 
         if (userRole === 'ADMIN') {
-          document.getElementById('adminMenu').style.display = 'block';
+          const navList = document.querySelector('.navbar-nav');
+
+          const adminNavItem = document.createElement('li');
+          adminNavItem.classList.add('nav-item');
+
+          const adminLink = document.createElement('a');
+          adminLink.classList.add('nav-link', 'text-white');
+          adminLink.href = '/admin';
+          adminLink.textContent = '관리';
+
+          adminNavItem.appendChild(adminLink);
+          navList.appendChild(adminNavItem);
         }
       }
 

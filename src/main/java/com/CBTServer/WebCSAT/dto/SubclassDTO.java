@@ -16,7 +16,6 @@ public class SubclassDTO {
     private Long subclassId;
     private String subclassName;
     private int count;
-    private boolean listening;
     private boolean optional;
     private Long subjectId;
 

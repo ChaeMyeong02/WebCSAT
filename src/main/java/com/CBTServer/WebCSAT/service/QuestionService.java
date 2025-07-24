@@ -11,8 +11,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Service
@@ -25,6 +27,12 @@ public class QuestionService {
 
     public Question findById(Long questionId) {
         return questionRepository.findById(questionId).orElseThrow(() -> new IllegalArgumentException(questionId + " : 존재하지 않는 ID 입니다."));
+    }
+
+    public List<Question> getQuestions(Long subclassId, String csatDate) {
+        CsatDate csatDateEntity = csatDateRepository.findById(csatDate)
+                .orElseThrow(() -> new IllegalArgumentException("해당 csatDate 없음: " + csatDate));
+        return questionRepository.findBySubclass_SubclassIdAndCsatDate(subclassId, csatDateEntity);
     }
 
     public QuestionDTO getQuestion(Long questionId) {
@@ -92,4 +100,40 @@ public class QuestionService {
         }
         return dtoList;
     }
+    public List<CsatDate> getAllCsatDates() {
+        return csatDateRepository.findAll();
+    }
+
+    public List<String> getCsatDatesByType(String questionType) {
+        List<CsatDate> allDates = questionRepository.findDistinctCsatDates();
+
+        // CsatDate 객체에서 문자열을 추출
+        List<String> dateStrings = allDates.stream()
+                .map(CsatDate::getCsatDate)  // ← 여기서 csatDate(String) 값만 추출
+                .toList();
+
+        if ("모의고사".equals(questionType)) {
+            return dateStrings.stream()
+                    .filter(date -> date.matches("\\d{4}년\\d{1,2}월"))
+                    .toList();
+        } else {
+            return dateStrings.stream()
+                    .filter(date -> !date.matches("\\d{4}년\\d{1,2}월"))
+                    .toList();
+        }
+    }
+
+    public List<String> getAvailableCsatDatesBySubclass(Long subclassId) {
+        List<Question> questions = questionRepository.findBySubclass_SubclassId(subclassId);
+
+        return questions.stream()
+                .map(q -> q.getCsatDate().getCsatDate())
+                .filter(date -> date.matches("\\d{4}년\\d{1,2}월")) // ← 여기!
+                .distinct()
+                .sorted(Comparator.reverseOrder()) // 최신순 정렬 (선택)
+                .collect(Collectors.toList());
+    }
+
+
+
 }

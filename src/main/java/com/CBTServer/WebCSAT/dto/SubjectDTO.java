@@ -12,5 +12,4 @@ public class SubjectDTO {
     private String subjectName;
     private int option;
     private int min;
-    private boolean relative;
 }
