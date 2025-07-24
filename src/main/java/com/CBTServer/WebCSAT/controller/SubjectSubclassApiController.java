@@ -4,6 +4,7 @@ import com.CBTServer.WebCSAT.domain.Subclass;
 import com.CBTServer.WebCSAT.dto.QuestionDTO;
 import com.CBTServer.WebCSAT.dto.SubclassDTO;
 import com.CBTServer.WebCSAT.dto.SubjectDTO;
+import com.CBTServer.WebCSAT.repository.SubclassRepository;
 import com.CBTServer.WebCSAT.service.SubjectSubclassService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -12,21 +13,27 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @RestController
 public class SubjectSubclassApiController {
     private final SubjectSubclassService subjectSubclassService;
+    private final SubclassRepository subclassRepository;
 
     @GetMapping("/api/subject")
     public List<SubjectDTO> getAllSubject() {
         return subjectSubclassService.findAllSubject();
     }
 
-    @GetMapping("/api/subclass")
-    public List<SubclassDTO> getAllSubclass() {
-        return subjectSubclassService.findAllSubclass();
+    @GetMapping("/api/subclasses")
+    public List<SubclassDTO> getSubclasses(@RequestParam Long subjectId) {
+        List<Subclass> subclassList = subclassRepository.findAllBySubject_SubjectId(subjectId);
+        return subclassList.stream()
+                .map(SubclassDTO::from)
+                .collect(Collectors.toList());
     }
+
 
     @GetMapping("/api/subject/{subjectId}")
     public ResponseEntity<?> getSubject(@PathVariable("subjectId") Long subjectId) {

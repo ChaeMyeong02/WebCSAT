@@ -35,7 +35,7 @@ public class SubjectSubclassService {
     public List<SubclassDTO> findAllSubclass() {
         List<Subclass> subclassList = subclassRepository.findAll();
         List<SubclassDTO> dtoList = new ArrayList<>();
-        for(Subclass s : subclassList) {
+        for (Subclass s : subclassList) {
             SubclassDTO dto = SubclassDTO.builder()
                     .subclassId(s.getSubclassId())
                     .subclassName(s.getSubclassName())

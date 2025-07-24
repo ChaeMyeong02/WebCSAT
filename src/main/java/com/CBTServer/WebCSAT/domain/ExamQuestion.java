@@ -1,35 +1,33 @@
 package com.CBTServer.WebCSAT.domain;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import com.CBTServer.WebCSAT.domain.Subclass;
 
 @Entity
 @Table(name = "exam_question")
-@AllArgsConstructor
-@NoArgsConstructor
-@Getter
-@Setter
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
 public class ExamQuestion {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "join_id", updatable = false, unique = true)
+    @Column(name = "join_id")
     private Long joinId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "exam_id", referencedColumnName = "exam_id")
+    @ManyToOne
+    @JoinColumn(name = "exam_id")
     private Exam exam;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "subclass_id", referencedColumnName = "subclass_id")
+    @ManyToOne
+    @JoinColumn(name = "subclass_id")
     private Subclass subclass;
 
-    @Column(name = "selected_answer")
+    @ManyToOne
+    @JoinColumn(name = "question_id")
+    private Question question;
+
     private String selectedAnswer;
 
-    @Column(name = "is_correct")
-    private boolean isCorrect;
-
+    private Boolean isCorrect;
 }

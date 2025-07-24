@@ -1,5 +1,6 @@
 package com.CBTServer.WebCSAT.dto;
 
+import com.CBTServer.WebCSAT.service.ExamService;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -7,6 +8,8 @@ import lombok.Setter;
 
 import java.sql.Time;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -20,4 +23,15 @@ public class ExamDTO {
     private int result;
     private LocalDateTime testDate;
     private Time duration;
+
+    private List<Long> questionIds;
+    private List<String> answers;
+
+    public List<SubmittedAnswer> toSubmittedAnswerList() {
+        List<SubmittedAnswer> result = new ArrayList<>();
+        for (int i = 0; i < questionIds.size(); i++) {
+            result.add(new SubmittedAnswer(questionIds.get(i), answers.get(i)));
+        }
+        return result;
+    }
 }

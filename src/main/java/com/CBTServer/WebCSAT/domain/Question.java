@@ -65,4 +65,3 @@ public class Question {
     @JoinColumn(name = "subclass_id", referencedColumnName = "subclass_id")
     private Subclass subclass;
 }
-

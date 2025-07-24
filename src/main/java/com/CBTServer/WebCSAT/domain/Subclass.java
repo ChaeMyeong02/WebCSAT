@@ -1,5 +1,6 @@
 package com.CBTServer.WebCSAT.domain;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -35,6 +36,7 @@ public class Subclass {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")
+    @JsonBackReference
     private Subject subject;
 
     @OneToMany(mappedBy = "subclass", cascade = CascadeType.ALL, orphanRemoval = true)
