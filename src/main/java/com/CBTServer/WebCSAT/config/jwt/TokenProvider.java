@@ -83,10 +83,19 @@ public class TokenProvider {
 
     public Authentication getAuthentication(String token) {
         Claims claims = getClaims(token);
-        Set<SimpleGrantedAuthority> authorities = Collections.singleton(new SimpleGrantedAuthority("ROLE_USER"));
+        String role = claims.get("role", String.class);
 
-        return new UsernamePasswordAuthenticationToken(new org.springframework.security.core.userdetails.User(claims.getSubject
-                (), "", authorities), token, authorities);
+
+        SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role);
+        System.out.println(">>> ROLE = " + role); // 디버깅용
+        System.out.println(">>> Authorities = " + authority);
+        return new UsernamePasswordAuthenticationToken(
+                new org.springframework.security.core.userdetails.User(
+                        claims.getSubject(), "", Collections.singleton(authority)
+                ),
+                token,
+                Collections.singleton(authority)
+        );
     }
 
     public Long getUserId(String token) {

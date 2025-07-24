@@ -58,6 +58,11 @@
         if (userRole === 'ADMIN') {
           document.getElementById('adminMenu').style.display = 'block';
         }
+
+        if (window.location.search.includes('token=')) {
+          const newUrl = window.location.origin + window.location.pathname;
+          window.history.replaceState({}, document.title, newUrl);
+}
       }
 
       logoutLink.addEventListener('click', function(event) {

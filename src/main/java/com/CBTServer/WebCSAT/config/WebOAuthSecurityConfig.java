@@ -24,6 +24,10 @@ import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.util.pattern.PathPatternParser;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+
+
 
 @RequiredArgsConstructor
 @Configuration
@@ -45,10 +49,22 @@ public class WebOAuthSecurityConfig {
 
         http.addFilterBefore(tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
 
+
+        http.exceptionHandling(exception -> exception
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setStatus(HttpStatus.FORBIDDEN.value());
+                })
+                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+        );
+
         http.authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/login","/api/token").permitAll()
-                        .requestMatchers("/api/**").permitAll()
+                        // 로그인 및 토큰 발급 허용
+                        .requestMatchers("/login", "/api/token", "/logout").permitAll()
+                        // 정적 자원 허용
                         .requestMatchers("/img/**", "/css/**", "/js/**").permitAll()
+                        // 관리자 API: admin 권한 필요
+                        .requestMatchers("/api/**").hasRole("ADMIN")
+                        // 나머지는 모두 허용
                         .anyRequest().permitAll());
 
         http.oauth2Login(oauth2 -> oauth2

@@ -113,6 +113,8 @@
     const rows = document.querySelectorAll('#questionTable tbody tr');
     const typeSelect = document.getElementById('filterType');
 
+    const token = localStorage.getItem("toekn"); // ✅ 토큰 저장소에서 읽기
+
     document.querySelectorAll('.btn-delete').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         const questionId = e.target.dataset.id;
@@ -120,8 +122,12 @@
 
         try {
           const res = await fetch(`/api/question/${questionId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: {
+              "Authorization": `Bearer ${token}` // ✅ 토큰 포함
+            }
           });
+
           if (!res.ok) throw new Error("삭제 실패");
           alert("삭제 완료되었습니다.");
           window.location.reload(); // 새로고침
@@ -140,7 +146,6 @@
       const csatDate = document.getElementById('csatDateSelect').value;
 
       const params = new URLSearchParams();
-
       if (subjectId) params.append("subjectId", subjectId);
       if (subclassId) params.append("subclassId", subclassId);
       if (csatDate) params.append("csatDate", csatDate);
@@ -168,6 +173,7 @@
     applyClientFilter(); // 페이지 로딩 시 적용
   });
 </script>
+
 
 </body>
 </html>
