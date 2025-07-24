@@ -11,6 +11,7 @@ import com.CBTServer.WebCSAT.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
@@ -62,7 +63,10 @@ public class WebOAuthSecurityConfig {
                         .requestMatchers("/login", "/api/token", "/logout").permitAll()
                         // 정적 자원 허용
                         .requestMatchers("/img/**", "/css/**", "/js/**").permitAll()
-                        // 관리자 API: admin 권한 필요
+                        // GET 메서드인 경우: 인증된 사용자 모두 허용
+                        .requestMatchers(HttpMethod.GET, "/api/**").authenticated()
+
+                        // 나머지 메서드의 /api/** 요청은 ADMIN만
                         .requestMatchers("/api/**").hasRole("ADMIN")
                         // 나머지는 모두 허용
                         .anyRequest().permitAll());
