@@ -5,7 +5,6 @@
     <title>임앤장CBT</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
 </head>
 <script>
     function updateSubclassOptions() {
@@ -20,8 +19,12 @@
       subclassOptions.forEach(option => {
         const matchSubject = option.dataset.subjectId === selectedSubjectId;
         const isOptional = option.dataset.optional === 'true';
+        const isListening = option.dataset.listening === 'true';
 
-        const shouldShow = matchSubject && (!isSubjective || isOptional); // 모의고사면 선택과목만
+        // 문제은행 모드일 경우 listening=true 필터링
+        const shouldShow = matchSubject
+            && (!isSubjective || isOptional)   // subjective일 때는 optional만 허용
+            && (isSubjective || !isListening); // objective일 때는 listening 제외
 
         if (shouldShow) {
           option.hidden = false;
@@ -37,7 +40,7 @@
         if (firstVisible) firstVisible.selected = true;
         subclassSelect.disabled = false;
       } else {
-        subclassSelect.innerHTML = ''; // 기존 제거
+        subclassSelect.innerHTML = '';
         const placeholder = document.createElement('option');
         placeholder.text = '세부과목 없음';
         placeholder.disabled = true;
@@ -47,13 +50,11 @@
       }
     }
 
-
-        window.addEventListener('DOMContentLoaded', updateSubclassOptions);
+    window.addEventListener('DOMContentLoaded', updateSubclassOptions);
 </script>
 <body class="gradient-custom d-flex flex-column min-vh-100">
 <th:block th:replace="~{fragments/commonHeader :: header}"></th:block>
 
-<!-- 콘텐츠를 flex-grow-1로 감싸 남는 높이 채움 -->
 <main class="container d-flex flex-column justify-content-center align-items-center flex-grow-1 text-center">
     <h1 class="text-white mt-4">문제 추가</h1>
     <p class="lead text-white-50 mb-4">원하는 유형의 문제를 추가하세요</p>
@@ -61,16 +62,54 @@
     <div class="mb-2">
         <label class="form-label text-white d-block">문제 유형</label>
         <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="typeToggle" id="objective" checked
-                   data-bs-toggle="tooltip" data-bs-placement="top"
-                   title="문제은행 유형: 독립된 단일 문제 등록">
+            <input class="form-check-input" type="radio" name="typeToggle" id="objective" checked>
             <label class="form-check-label" for="objective">문제은행</label>
         </div>
         <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="typeToggle" id="subjective"
-                   data-bs-toggle="tooltip" data-bs-placement="top"
-                   title="모의고사 유형: 선택과목 기반 문제지 형식으로 등록">
+            <input class="form-check-input" type="radio" name="typeToggle" id="subjective">
             <label class="form-check-label" for="subjective">모의고사</label>
+        </div>
+    </div>
+
+    <div class="mb-2" id="datePickerWrapper" style="display: none;">
+        <label class="form-label text-white">모의고사 날짜 선택</label>
+        <div class="d-flex align-items-center gap-2">
+            <select id="csatDateInput" class="form-select">
+                <option th:each="csatDate : ${csatDateList}" th:value="${csatDate.csatDate}" th:text="${csatDate.csatDate}"></option>
+            </select>
+            <button class="btn btn-outline-light" style="white-space: nowrap;" data-bs-toggle="modal" data-bs-target="#addDateModal">날짜 추가</button>
+        </div>
+    </div>
+
+    <!-- 날짜 추가 모달 -->
+    <div class="modal fade" id="addDateModal" tabindex="-1" aria-labelledby="addDateModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">날짜 추가</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+                </div>
+                <div class="modal-body d-flex flex-column gap-2">
+                    <select id="yearSelect" class="form-select">
+                        <option value="" disabled selected>년도 선택</option>
+                        <script>
+                            for (let y = 2022; y <= new Date().getFullYear() + 1; y++) {
+                              document.write(`<option value="${y}">${y}</option>`);
+                            }
+                        </script>
+                    </select>
+                    <select id="monthSelect" class="form-select">
+                        <option value="" disabled selected>월 선택</option>
+                        <script>
+                            for (let m = 1; m <= 12; m++) {
+                              const mm = m.toString().padStart(2, '0');
+                              document.write(`<option value="${mm}">${mm}</option>`);
+                            }
+                        </script>
+                    </select>
+                    <button id="confirmAddDateBtn" class="btn btn-primary">추가</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -81,6 +120,7 @@
                 <select id="subjectSelect" class="form-select" onchange="updateSubclassOptions()">
                     <option th:each="subject : ${subjectDTOList}"
                             th:value="${subject.subjectId}"
+                            th:data-relative="${subject.relative}"
                             th:text="${subject.subjectName}">
                     </option>
                 </select>
@@ -88,14 +128,16 @@
             </div>
         </div>
 
-        <!-- subclass 추가 버튼 -->
         <div class="col-md-4">
             <label for="subclassSelect" class="form-label text-white">선택과목:</label>
             <div class="input-group">
                 <select id="subclassSelect" class="form-select">
-                    <option th:each="subclass : ${subclassDTOList}"
+                    <option
+                            th:each="subclass : ${subclassDTOList}"
+                            th:value="${subclass.subclassId}"
                             th:data-subject-id="${subclass.subjectId}"
                             th:data-optional="${subclass.optional}"
+                            th:data-listening="${subclass.listening}"
                             th:text="${subclass.subclassName + ' (' + (subclass.optional ? '선택' : '공통') + ')'}">
                     </option>
                 </select>
@@ -103,9 +145,30 @@
             </div>
         </div>
     </div>
+
+    <!-- 듣기 URL 다중 입력 -->
+    <div class="mb-2 w-75" id="listeningUrlWrapper" style="display: none;">
+        <label class="form-label text-white">듣기 음원</label>
+        <div id="listeningUrlInputs" class="d-flex flex-column gap-2"></div>
+    </div>
+
+    <!-- 상대평가용 등급컷 입력 (상대평가 과목만 노출) -->
+    <div class="mb-2" id="cutWrapper" style="display: none;">
+        <label class="form-label text-white">상대평가 등급 커트라인 (1~9등급, 9등급은 0 고정)</label>
+        <div class="d-flex flex-wrap gap-2">
+            <div th:each="i : ${#numbers.sequence(1,8)}">
+                <input type="number" class="form-control cut-input" min="0"
+                       th:placeholder="${i} + '등급컷'" style="width: 120px;">
+            </div>
+            <div>
+                <input type="number" class="form-control" value="0" disabled style="width: 120px;" placeholder="9등급컷">
+            </div>
+        </div>
+    </div>
+
     <div class="d-flex gap-4">
-        <a href="/admin/question/add/bank" class="bank btn btn-primary btn-lg">문제은행용 문제 추가</a>
-        <a href="/admin/question/add/mock" class="csat btn btn-success btn-lg">모의고사용 문제 추가</a>
+        <button class="bank btn btn-primary btn-lg" onclick="submitAddQuestion('bank')">문제은행용 문제 추가</button>
+        <button class="csat btn btn-success btn-lg" onclick="submitAddQuestion('mock')">모의고사용 문제 추가</button>
     </div>
 </main>
 
@@ -133,8 +196,17 @@
                             <option value="false">세부 선택과목 없음(ex 과학, 사회 등)</option>
                         </select>
                     </div>
+                    <div class="mb-3">
+                        <label for="isRelative" class="form-label">평가 방식</label>
+                        <select class="form-select" id="isRelative" name="relative" required>
+                            <option value="true">상대평가</option>
+                            <option value="false">절대평가</option>
+                        </select>
+                    </div>
                 </form>
             </div>
+
+
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
                 <button type="button" class="btn btn-primary" onclick="submitNewSubject()">추가</button>
@@ -168,6 +240,13 @@
                             <option value="false">공통과목</option>
                         </select>
                     </div>
+                    <div class="mb-3">
+                        <label for="subclassListening" class="form-label">듣기 과목 여부</label>
+                        <select class="form-select" id="subclassListening" name="listening" required>
+                            <option value="true">듣기 과목</option>
+                            <option value="false">듣기 아님</option>
+                        </select>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -178,117 +257,379 @@
     </div>
 </div>
 
+
+
 <script src="/js/token.js"></script>
 <script>
-    function updateMode() {
-        const isObjective = document.getElementById('objective').checked;
-        const bankBtn = document.querySelector('.bank');
-        const csatBtn = document.querySelector('.csat');
-        if (isObjective) {
-          bankBtn.style.display = 'block';
-          csatBtn.style.display = 'none';
-        } else {
-          bankBtn.style.display = 'none';
-          csatBtn.style.display = 'block';
-        }
-        updateSubclassOptions(); // 추가
-    }
-        document.getElementById('subjective').addEventListener('change', updateMode);
-        document.getElementById('objective').addEventListener('change', updateMode);
+    // ✅ 1. 초기 실행: DOM 로드 후 모든 초기화
+    window.addEventListener("DOMContentLoaded", () => {
+      document.getElementById('subjective').addEventListener('change', updateMode);
+      document.getElementById('objective').addEventListener('change', updateMode);
+
+      document.getElementById("subjectSelect").addEventListener("change", () => {
         updateMode();
+        updateListeningUrlInputs();
+      });
 
-          function submitNewSubject() {
-        const subjectName = document.getElementById('subjectName').value.trim();
-        const examTime = parseInt(document.getElementById('examTime').value);
-        const isOptional = document.getElementById('isOptional').value === 'true' ? 1 : 0;;
+      document.getElementById("subclassSelect").addEventListener("change", updateListeningUrlInputs);
 
-        if (!subjectName || isNaN(examTime) || examTime <= 0) {
-          alert("입력값을 확인하세요.");
-          return;
-        }
+      document.getElementById("confirmAddDateBtn").addEventListener("click", handleAddDate);
 
-        const data = {
-          subjectName: subjectName,
-          min: examTime,
-          option: isOptional
-        };
+      updateMode();
+      updateListeningUrlInputs();
+      updateSubclassOptions(); // 필요 시
+    });
 
-        fetch('/api/subject', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': getToken() // token.js 가 제공하는 함수
-          },
-          body: JSON.stringify(data)
-        })
-        .then(response => {
-          if (response.ok) return response.json();
-          throw new Error("추가 실패");
-        })
-        .then(newSubject => {
-          const subjectSelect = document.getElementById('subjectSelect');
-          const option = document.createElement('option');
-          option.value = newSubject.subjectId;
-          option.text = newSubject.subjectName;
-          subjectSelect.appendChild(option);
-          subjectSelect.value = newSubject.subjectId;
-          updateSubclassOptions();
-          bootstrap.Modal.getInstance(document.getElementById('addSubjectModal')).hide();
-        })
-        .catch(err => {
-          console.error(err);
-          alert("과목 추가 중 오류가 발생했습니다.");
-        });
-      }
+    // ✅ 2. 모드에 따라 화면 요소 보여주기
+    function updateMode() {
+      const isObjective = document.getElementById('objective').checked;
+      const bankBtn = document.querySelector('.bank');
+      const csatBtn = document.querySelector('.csat');
+      const datePicker = document.getElementById('datePickerWrapper');
+      const cutWrapper = document.getElementById('cutWrapper');
 
-        function submitNewSubclass() {
-      const subclassName = document.getElementById('subclassName').value.trim();
-      const count = parseInt(document.getElementById('count').value);
-      const isOptional = document.getElementById('subclassOptional').value === 'true' ? 1 : 0;;
+      bankBtn.style.display = isObjective ? 'block' : 'none';
+      csatBtn.style.display = isObjective ? 'none' : 'block';
+      datePicker.style.display = isObjective ? 'none' : 'block';
+
+      updateSubclassOptions();
+
+      const selectedSubject = document.querySelector(`#subjectSelect option[value="${document.getElementById('subjectSelect').value}"]`);
+      const isRelative = selectedSubject?.dataset.relative === "true";
+      cutWrapper.style.display = (!isObjective && isRelative) ? "block" : "none";
+    }
+
+    // ✅ 3. 듣기 과목 업로드 UI 생성
+    function updateListeningUrlInputs() {
       const subjectId = document.getElementById('subjectSelect').value;
+      const options = Array.from(document.querySelectorAll(`#subclassSelect option`));
+      const wrapper = document.getElementById("listeningUrlInputs");
+      wrapper.innerHTML = '';
 
-      if (!subclassName || isNaN(count) || count <= 0 || !subjectId) {
-        alert("입력값을 확인하세요.");
+      const listeningSubclasses = options.filter(opt =>
+        opt.dataset.subjectId === subjectId &&
+        opt.dataset.listening === "true"
+      );
+
+      if (listeningSubclasses.length > 0) {
+        document.getElementById("listeningUrlWrapper").style.display = "block";
+
+        listeningSubclasses.forEach(subclass => {
+          const subclassId = subclass.value;
+          const subclassName = subclass.textContent;
+
+          const group = document.createElement("div");
+          group.classList.add("input-group");
+
+          const label = document.createElement("span");
+          label.classList.add("input-group-text");
+          label.textContent = subclassName;
+
+          const fileInput = document.createElement("input");
+          fileInput.type = "file";
+          fileInput.accept = ".mp3";
+          fileInput.classList.add("form-control", "s3-upload");
+          fileInput.dataset.subclassId = subclassId;
+
+          const urlInput = document.createElement("input");
+          urlInput.type = "text";
+          urlInput.classList.add("form-control");
+          urlInput.placeholder = "S3 URL";
+          urlInput.readOnly = true;
+          urlInput.dataset.subclassId = subclassId;
+          urlInput.style.display = "none";
+
+          const cancelBtn = document.createElement("button");
+          cancelBtn.classList.add("btn", "btn-danger");
+          cancelBtn.textContent = "취소";
+          cancelBtn.type = "button";
+          cancelBtn.onclick = () => {
+            fileInput.disabled = false;
+            fileInput.value = '';
+            urlInput.value = '';
+            urlInput.style.display = 'none';
+            cancelBtn.style.display = 'none';
+          };
+          cancelBtn.style.display = 'none';
+
+          fileInput.addEventListener("change", async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+              const res = await fetch("/api/upload", {
+                method: "POST",
+                headers: {
+                  "Authorization": getToken()
+                },
+                body: formData
+              });
+              if (!res.ok) throw new Error("Upload failed");
+              const url = await res.text();
+
+              urlInput.value = url;
+              urlInput.style.display = 'block';
+              fileInput.disabled = true;
+              cancelBtn.style.display = 'inline-block';
+            } catch (err) {
+              console.error(err);
+              alert("업로드 실패: " + err.message);
+            }
+          });
+
+          group.appendChild(label);
+          group.appendChild(fileInput);
+          group.appendChild(urlInput);
+          group.appendChild(cancelBtn);
+          wrapper.appendChild(group);
+        });
+      } else {
+        document.getElementById("listeningUrlWrapper").style.display = "none";
+      }
+    }
+
+    // ✅ 4. 문제 추가 (문제은행 vs 모의고사)
+    function submitAddQuestion(mode) {
+      const subjectId = document.getElementById('subjectSelect').value;
+      const subclassId = document.getElementById('subclassSelect').value;
+
+      if (!subjectId || !subclassId) {
+        alert("과목과 세부과목을 선택해주세요.");
         return;
       }
 
-      const data = {
-        subclassName: subclassName,
-        count: count,
-        optional: isOptional,
-        subjectId: parseInt(subjectId)
-      };
+      if (mode === 'bank') {
+        const endpoint = `/api/question/bank?subjectId=${subjectId}&subclassId=${subclassId}`;
+        fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Authorization": getToken()
+          }
+        })
+        .then(res => {
+          if (!res.ok) throw new Error("서버 오류");
+          return res.json();
+        })
+        .then(result => {
+          const questionId = result.questionId;
+          window.location.href = `/admin/question/edit?questionId=${questionId}`;
+        })
+        .catch(err => {
+          console.error(err);
+          alert("문제 추가 중 오류가 발생했습니다.");
+        });
 
-      fetch('/api/subclass', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': getToken()
-        },
-        body: JSON.stringify(data)
-      })
-      .then(response => {
-        if (response.ok) return response.json();
-        throw new Error("추가 실패");
-      })
-      .then(newSubclass => {
-        const subclassSelect = document.getElementById('subclassSelect');
-        const option = document.createElement('option');
-        option.text = `${newSubclass.subclassName} (${newSubclass.optional === 1 ? '선택' : '공통'})`;
-        option.setAttribute('data-subject-id', newSubclass.subjectId);
-        option.hidden = (newSubclass.subjectId != subjectId); // 다른 subject이면 기본적으로 숨김
+      } else if (mode === 'mock') {
+        const csatDate = document.getElementById('csatDateInput').value;
+        if (!csatDate) {
+          alert("모의고사 날짜를 선택해주세요.");
+          return;
+        }
+
+        // ✅ 선택한 과목이 상대평가인지 확인
+        const selectedSubjectOption = document.querySelector(`#subjectSelect option[value="${subjectId}"]`);
+        const isRelative = selectedSubjectOption?.dataset.relative === 'true';
+
+        let cuts = [];
+        if (isRelative) {
+          const cutInputs = document.querySelectorAll('.cut-input');
+          let hasEmpty = false;
+
+          cutInputs.forEach(input => {
+            const raw = input.value.trim();
+            if (raw === '') {
+              hasEmpty = true;
+            } else {
+              const val = parseInt(raw);
+              cuts.push(isNaN(val) ? 0 : val);
+            }
+          });
+
+          if (hasEmpty || cuts.length !== 8) {
+            alert("1~8등급까지의 등급컷을 모두 입력해주세요.");
+            return;
+          }
+          cuts.push(0); // 9등급 고정
+        }
+
+        const urlInputs = document.querySelectorAll('#listeningUrlInputs input');
+        const listeningUrlMap = {};
+        urlInputs.forEach(input => {
+          const subclassId = input.dataset.subclassId;
+          const url = input.value.trim();
+          if (url) {
+            listeningUrlMap[subclassId] = url;
+          }
+        });
+
+        const payload = {
+          csatDate,
+          subjectId: parseInt(subjectId),
+          subclassId: parseInt(subclassId),
+          cuts: cuts.length === 9 ? cuts : undefined,
+          listeningUrlMap: Object.keys(listeningUrlMap).length > 0 ? listeningUrlMap : undefined
+        };
+
+        fetch('/api/question/mock', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': getToken()
+          },
+          body: JSON.stringify(payload)
+        })
+        .then(async res => {
+          if (res.status === 409) {
+            const message = await res.text();
+            alert(message || "문제 등록에 실패했습니다.");
+            return;
+          }
+          if (!res.ok) throw new Error("서버 오류");
+          return res.json();
+        })
+        .then(result => {
+          if (!result) return; // 위에서 alert 후 중단됨
+          const query = new URLSearchParams(result).toString();
+          window.location.href = `/admin/question/list?${query}`;
+        })
+        .catch(err => {
+          console.error(err);
+          alert("문제 추가 중 오류가 발생했습니다.");
+        });
+      }
+    }
+
+    // ✅ 5. 새로운 날짜 추가
+    async function handleAddDate() {
+      const year = document.getElementById("yearSelect").value;
+      const month = document.getElementById("monthSelect").value;
+
+      if (!year || !month) {
+        alert("년도와 월을 모두 선택해주세요.");
+        return;
+      }
+
+      const newDate = `${year}년${month}월`;
+
+      try {
+        const res = await fetch('/api/csat-date', {
+          method: 'POST',
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": getToken()
+          },
+          body: JSON.stringify({ csatDate: newDate })
+        });
+
+        if (res.status === 409) {
+          alert("이미 존재하는 날짜입니다.");
+          return;
+        }
+        if (!res.ok) throw new Error();
+
+        const select = document.getElementById("csatDateInput");
+        const option = document.createElement("option");
+        option.value = newDate;
+        option.text = newDate;
         option.selected = true;
-        subclassSelect.appendChild(option);
+        select.appendChild(option);
 
-        bootstrap.Modal.getInstance(document.getElementById('addSubclassModal')).hide();
-        updateSubclassOptions();
+        bootstrap.Modal.getInstance(document.getElementById("addDateModal")).hide();
+        alert("날짜가 추가되었습니다");
+
+      } catch (err) {
+        console.error(err);
+        alert("날짜 추가 중 오류가 발생했습니다.");
+      }
+    }
+
+    // ✅ 6. 새로운 과목/세부과목 등록
+    function submitNewSubject() {
+      const form = document.getElementById('addSubjectForm');
+      const subjectName = form.subjectName.value.trim();
+      const examTime = parseInt(form.examTime.value);
+      const isOptional = form.isOptional.value;
+      const isRelative = form.isRelative.value;
+
+      if (!subjectName || !examTime || !isOptional || !isRelative) {
+        alert("모든 항목을 입력해주세요.");
+        return;
+      }
+
+      fetch("/api/subject", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": getToken()
+        },
+        body: JSON.stringify({
+          subjectName,
+          examTime,
+          optional: isOptional === "true",
+          relative: isRelative === "true"
+        })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then(() => {
+        alert("과목이 추가되었습니다.");
+        bootstrap.Modal.getInstance(document.getElementById("addSubjectModal")).hide();
+        location.reload();
       })
       .catch(err => {
         console.error(err);
-        alert("선택과목 추가 중 오류가 발생했습니다.");
+        alert("과목 추가 중 오류가 발생했습니다.");
       });
     }
 
+    function submitNewSubclass() {
+      const form = document.getElementById('addSubclassForm');
+      const subclassName = form.subclassName.value.trim();
+      const count = parseInt(form.count.value);
+      const optional = form.subclassOptional.value;
+      const listening = form.subclassListening.value;
+      const subjectId = document.getElementById("subjectSelect").value;
+
+      if (!subclassName || !count || !optional || !listening || !subjectId) {
+        alert("모든 항목을 입력해주세요.");
+        return;
+      }
+
+      fetch("/api/subclass", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": getToken()
+        },
+        body: JSON.stringify({
+          subclassName,
+          count,
+          optional: optional === "true",
+          listening: listening === "true",
+          subjectId: parseInt(subjectId)
+        })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then(() => {
+        alert("세부과목이 추가되었습니다.");
+        bootstrap.Modal.getInstance(document.getElementById("addSubclassModal")).hide();
+        location.reload();
+      })
+      .catch(err => {
+        console.error(err);
+        alert("세부과목 추가 중 오류가 발생했습니다.");
+      });
+    }
 </script>
+
+
 </body>
 </html>

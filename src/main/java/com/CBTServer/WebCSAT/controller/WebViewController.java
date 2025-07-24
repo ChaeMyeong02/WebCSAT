@@ -3,7 +3,6 @@ package com.CBTServer.WebCSAT.controller;
 import com.CBTServer.WebCSAT.domain.Question;
 import com.CBTServer.WebCSAT.dto.QuestionDTO;
 import com.CBTServer.WebCSAT.dto.SubclassDTO;
-import com.CBTServer.WebCSAT.dto.SubjectDTO;
 import com.CBTServer.WebCSAT.service.QuestionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;

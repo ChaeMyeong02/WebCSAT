@@ -5,15 +5,16 @@ import com.CBTServer.WebCSAT.dto.ImageMetaDTO;
 import com.CBTServer.WebCSAT.repository.ImageMetaRepository;
 import com.CBTServer.WebCSAT.service.ImageService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -56,5 +57,16 @@ public class ImageMetaApiController {
         String url = imageService.uploadAndRegisterIfNotExists(file, csatDate, subclassId);
         return ResponseEntity.ok(url);
     }
+
+    @DeleteMapping("/api/images")
+    public ResponseEntity<?> deleteImage(@RequestParam("url") String url) {
+        try {
+            imageService.deleteImage(URLDecoder.decode(url, StandardCharsets.UTF_8));
+            return ResponseEntity.ok().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+        }
+    }
+
 }
 

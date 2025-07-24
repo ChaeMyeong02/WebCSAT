@@ -31,6 +31,9 @@ public class Subclass {
     @Column(name = "count")
     private int count;
 
+    @Column(name = "listening")
+    private boolean listening;
+
     @Column(name = "optional")
     private boolean optional;
 

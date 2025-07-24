@@ -3,6 +3,7 @@ package com.CBTServer.WebCSAT.controller;
 import com.CBTServer.WebCSAT.domain.CsatDate;
 import com.CBTServer.WebCSAT.dto.CsatDateDTO;
 import com.CBTServer.WebCSAT.dto.QuestionDTO;
+import com.CBTServer.WebCSAT.repository.CsatDateRepository;
 import com.CBTServer.WebCSAT.service.CsatDateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -14,15 +15,18 @@ import java.util.Map;
 @RequiredArgsConstructor
 @RestController
 public class CsatDateApiController {
-    private final CsatDateService csatDateService;
+    private final CsatDateRepository csatDateRepository;
 
-    @PostMapping("/api/csatDate")
-    public ResponseEntity<?> addCsatDate(@RequestParam("dateStr") String castDate) {
-        try {
-            CsatDateDTO dto = csatDateService.saveIfNotExist(castDate);
-            return ResponseEntity.ok().body(dto);
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "이미 존재하는 날짜입니다."));
+    @PostMapping("/api/csat-date")
+    public ResponseEntity<?> addCsatDate(@RequestBody Map<String, String> payload) {
+        String csatDate = payload.get("csatDate");
+        if (csatDate == null || csatDate.isBlank()) return ResponseEntity.badRequest().build();
+
+        if (csatDateRepository.existsById(csatDate)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build(); // 409 중복
         }
+
+        csatDateRepository.save(new CsatDate(csatDate)); // csatDate가 PK인 엔티티
+        return ResponseEntity.ok().build();
     }
 }
