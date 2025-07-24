@@ -149,8 +149,13 @@
                          style="transform: translateY(-40px); margin-bottom: -20px;
             padding: 1rem; background: #f0f0f0; border: 1px solid #bbb;
             z-index: 2; position: relative;">
-                        <p style="font-weight: bold;">📘 공통 지문</p>
-                        <img th:src="${q.questionArticle.url}" alt="공통 지문" style="max-width:100%; max-height:300px;">
+                        <!-- 문제 여러 개에서 공유될 때만 문구 출력 -->
+                        <p style="font-weight: bold;"
+                           th:if="${articleRangeMap[q.questionArticle.url][0] != articleRangeMap[q.questionArticle.url][1]}">
+                            <span th:text="'[' + (${articleRangeMap[q.questionArticle.url][0] + 1}) + '~' + (${articleRangeMap[q.questionArticle.url][1] + 1}) + '] 공통 지문'"></span>
+                        </p>
+
+                        <img th:src="${q.questionArticle.url}" alt="공통 지문" style="max-width:100%;">
                     </div>
 
                     <p th:utext="'Q' + ${iStat.index + 1} + '. ' + ${q.questionTitle}"></p>
@@ -222,8 +227,13 @@
                          style="transform: translateY(-40px); margin-bottom: -20px;
             padding: 1rem; background: #f0f0f0; border: 1px solid #bbb;
             z-index: 2; position: relative;">
-                        <p style="font-weight: bold;">📘 공통 지문</p>
-                        <img th:src="${q.questionArticle.url}" alt="공통 지문" style="max-width:100%; max-height:300px;">
+                        <!-- 문제 여러 개에서 공유될 때만 문구 출력 -->
+                        <p style="font-weight: bold;"
+                           th:if="${articleRangeMap[q.questionArticle.url][0] != articleRangeMap[q.questionArticle.url][1]}">
+                            <span th:text="'[' + (${articleRangeMap[q.questionArticle.url][0] + 1}) + '~' + (${articleRangeMap[q.questionArticle.url][1] + 1}) + '] 공통 지문'"></span>
+                        </p>
+
+                        <img th:src="${q.questionArticle.url}" alt="공통 지문" style="max-width:100%;">
                     </div>
 
                     <p th:utext="'Q' + ${iStat.index + 1} + '. ' + ${q.questionTitle}"></p>

@@ -19,7 +19,9 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Controller
 public class ExamController {
@@ -112,6 +114,22 @@ public class ExamController {
             // ✅ 제목 관련 이름도 추가
             model.addAttribute("subjectName", subjectName);
             model.addAttribute("subclassName", subclassName);
+
+            // 공통 지문 범위 계산 (url -> [startIndex, endIndex])
+            Map<String, int[]> articleRangeMap = new HashMap<>();
+            for (int i = 0; i < questions.size(); i++) {
+                Question q = questions.get(i);
+                if (q.getQuestionArticle() == null || q.getQuestionArticle().getUrl() == null) continue;
+
+                String url = q.getQuestionArticle().getUrl();
+                if (!articleRangeMap.containsKey(url)) {
+                    articleRangeMap.put(url, new int[]{i, i});
+                } else {
+                    articleRangeMap.get(url)[1] = i;
+                }
+            }
+            model.addAttribute("articleRangeMap", articleRangeMap);
+
 
             int total = questions.size();
             int mid = (int) Math.ceil(total / 2.0); // 홀수면 왼쪽이 더 많음
