@@ -4,6 +4,16 @@ document.addEventListener("DOMContentLoaded", function () {
   const subclassSelect = document.getElementById('subclass-select');
   const csatDateSelect = document.getElementById('csat-date-select');
 
+  // ✅ 문제은행이면 응시월 숨기기
+    const questionTypeInput = document.querySelector('input[name="questionType"]');
+    const questionType = questionTypeInput ? questionTypeInput.value : '';
+    const csatDateWrapper = document.getElementById('csat-date-wrapper');
+
+    if (questionType === '문제은행' && csatDateWrapper) {
+      csatDateWrapper.style.display = 'none';
+      csatDateSelect.removeAttribute('required');
+    }
+
   subjectSelect.addEventListener('change', function () {
     const subjectId = subjectSelect.value;
 

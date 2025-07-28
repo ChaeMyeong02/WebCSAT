@@ -19,7 +19,9 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Controller
 public class ExamController {
@@ -68,7 +70,21 @@ public class ExamController {
                            @RequestParam(required = false) String questionType,
                            Model model) {
         try {
+
+            // ✅ 1. 문제은행일 경우 csatDate를 강제로 "문제은행용"으로 설정
+            if ("문제은행".equals(questionType)) {
+                csatDate = "문제은행용";
+            }
+
+            // ✅ 2. 모의고사인데 응시월을 선택하지 않은 경우 에러 처리
+            if (!"문제은행".equals(questionType) && (csatDate == null || csatDate.isEmpty())) {
+                model.addAttribute("error", "응시 월이 필요합니다.");
+                return "error";
+            }
+
             List<Question> questions = questionService.getQuestions(subclassId, csatDate);
+
+
 
             // ✅ 부과목 가져오기
             Subclass subclass = subclassRepository.findById(subclassId).orElse(null);
@@ -113,6 +129,22 @@ public class ExamController {
             model.addAttribute("subjectName", subjectName);
             model.addAttribute("subclassName", subclassName);
 
+            // 공통 지문 범위 계산 (url -> [startIndex, endIndex])
+            Map<String, int[]> articleRangeMap = new HashMap<>();
+            for (int i = 0; i < questions.size(); i++) {
+                Question q = questions.get(i);
+                if (q.getQuestionArticle() == null || q.getQuestionArticle().getUrl() == null) continue;
+
+                String url = q.getQuestionArticle().getUrl();
+                if (!articleRangeMap.containsKey(url)) {
+                    articleRangeMap.put(url, new int[]{i, i});
+                } else {
+                    articleRangeMap.get(url)[1] = i;
+                }
+            }
+            model.addAttribute("articleRangeMap", articleRangeMap);
+
+
             int total = questions.size();
             int mid = (int) Math.ceil(total / 2.0); // 홀수면 왼쪽이 더 많음
 
@@ -131,6 +163,49 @@ public class ExamController {
         }
     }
 
+    @PostMapping("/takeBankExam")
+    public String takeBankExam(@RequestParam Long subjectId,
+                               @RequestParam Long subclassId, Model model) {
+        String csatDate = "문제은행용";
+        List<Question> questions = questionService.getQuestions(subclassId, csatDate);
+
+        if (questions == null || questions.isEmpty()) {
+            model.addAttribute("error", "문제은행에 해당 과목의 문제가 없습니다.");
+            return "error";
+        }
+
+        // ✅ 문제 수가 1개 이하면 종료 알림 플래그 전달
+        if (questions.size() <= 1) {
+            model.addAttribute("finished", true); // ✅ 이 플래그를 bankAnswerResult에서 사용할 예정
+            return "test/bankAnswerResult";
+        }
+
+        model.addAttribute("question", questions.get(0));  // 첫 문제만 표시
+        model.addAttribute("currentIndex", 0);
+        model.addAttribute("totalQuestions", questions.size());
+        model.addAttribute("questions", questions);  // 인덱스로 다음 문제 찾을 수 있도록
+        model.addAttribute("subjectId", subjectId);  // ✅ 여기도 추가!
+        model.addAttribute("subclassId", subclassId); // ✅ 이것도 확실히 넣기!
+        return "test/takeBankExam";  // 한 문제씩 보여주는 뷰
+    }
+
+    @PostMapping("/submitBankAnswer")
+    public String submitBankAnswer(@RequestParam Long questionId,
+                                   @RequestParam String answer,
+                                   @RequestParam Long subclassId,
+                                   @RequestParam Long subjectId,
+                                   Model model) {
+
+        Question question = questionService.findById(questionId);
+        boolean isCorrect = question.getAnswer().equals(answer);
+
+        model.addAttribute("isCorrect", isCorrect);
+        model.addAttribute("question", question);
+        model.addAttribute("subclassId", subclassId);
+        model.addAttribute("subjectId", subjectId);
+
+        return "test/bankAnswerResult";
+    }
 
 
     /** ✅ 3. 시험 제출 */

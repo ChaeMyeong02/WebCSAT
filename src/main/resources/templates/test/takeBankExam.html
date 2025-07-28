@@ -49,14 +49,15 @@
 
 <div class="question-container">
   <form th:action="@{/submitBankAnswer}" method="post">
-    <input type="hidden" name="questionId" th:value="${question.id}" />
+    <input type="hidden" name="questionId" th:value="${question.questionId}" />
     <input type="hidden" name="subjectId" th:value="${subjectId}" />
     <input type="hidden" name="subclassId" th:value="${subclassId}" />
 
     <h4 th:text="'Q. ' + ${question.questionTitle}"></h4>
 
-    <div th:if="${question.questionArticle != null}">
-      <img th:src="${question.questionArticle.url}" alt="문제 이미지" style="max-width:100%; max-height:300px;">
+    <div th:if="${question.questionArticle != null}" class="text-center">
+      <img th:src="${question.questionArticle.url}" alt="문제 이미지"
+           style="max-width: 100%; object-fit: contain;">
     </div>
 
     <p th:text="${question.questionContext}"></p>
