@@ -20,4 +20,10 @@ public class SubclassCsatDateDTO {
     private Integer cut7;
     private Integer cut8;
     private Integer cut9;
+
+    private String subjectName;
+    private String subclassName;
+
+    private boolean optional;
+
 }

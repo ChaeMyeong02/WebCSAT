@@ -64,7 +64,8 @@ public class ImageMetaApiController {
             imageService.deleteImage(url);
             return ResponseEntity.ok().build();
         } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.CONFLICT) // 409 Conflict
+                    .body(e.getMessage()); // 메시지를 그대로 보냄
         }
     }
 

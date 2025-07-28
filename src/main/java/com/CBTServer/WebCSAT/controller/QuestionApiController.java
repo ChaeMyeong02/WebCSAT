@@ -6,6 +6,7 @@ import com.CBTServer.WebCSAT.domain.Subject;
 import com.CBTServer.WebCSAT.dto.QuestionDTO;
 import com.CBTServer.WebCSAT.repository.SubclassCsatDateRepository;
 import com.CBTServer.WebCSAT.service.QuestionService;
+import com.CBTServer.WebCSAT.service.SubclassCsatDateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ import java.util.Optional;
 public class QuestionApiController {
     private final QuestionService questionService;
     private final SubclassCsatDateRepository subclassCsatDateRepository;
+    private final SubclassCsatDateService subclassCsatDateService;
 
     @GetMapping("/api/question/{questionId}")
     public ResponseEntity<?> getQuestion(@PathVariable Long questionId) {
@@ -114,5 +116,17 @@ public class QuestionApiController {
         return ResponseEntity.ok(dates);
     }
 
+    @PutMapping("/api/cuts")
+    public ResponseEntity<?> updateCuts(@RequestBody Map<String, Object> body) {
+        Long subclassId = Long.parseLong(body.get("subclassId").toString());
+        String csatDate = body.get("csatDate").toString();
 
+        List<?> rawCuts = (List<?>) body.get("cuts");
+        List<Integer> cuts = rawCuts.stream()
+                .map(c -> Integer.parseInt(c.toString()))
+                .toList();
+
+        subclassCsatDateService.updateCuts(subclassId, csatDate, cuts);
+        return ResponseEntity.ok().build();
+    }
 }

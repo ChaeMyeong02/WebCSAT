@@ -18,7 +18,7 @@ public class Question {
     private int num;
 
     @Lob
-    @Column(name = "question_title")
+    @Column(name = "question_title", columnDefinition = "TEXT")
     private String questionTitle;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -35,19 +35,24 @@ public class Question {
     @Column(name = "answer")
     private String answer;
 
-    @Column(name = "option1")
+    @Lob
+    @Column(name = "option1", columnDefinition = "TEXT")
     private String option1;
 
-    @Column(name = "option2")
+    @Lob
+    @Column(name = "option2", columnDefinition = "TEXT")
     private String option2;
 
-    @Column(name = "option3")
+    @Lob
+    @Column(name = "option3", columnDefinition = "TEXT")
     private String option3;
 
-    @Column(name = "option4")
+    @Lob
+    @Column(name = "option4", columnDefinition = "TEXT")
     private String option4;
 
-    @Column(name = "option5")
+    @Lob
+    @Column(name = "option5", columnDefinition = "TEXT")
     private String option5;
 
     @Column(name = "question_type")

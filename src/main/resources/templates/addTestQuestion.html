@@ -308,7 +308,8 @@
 
       const listeningSubclasses = options.filter(opt =>
         opt.dataset.subjectId === subjectId &&
-        opt.dataset.listening === "true"
+        opt.dataset.listening === "true" &&
+        opt.selected === true
       );
 
       if (listeningSubclasses.length > 0) {
@@ -453,6 +454,8 @@
             return;
           }
           cuts.push(0); // 9등급 고정
+        } else {
+          cuts = [90, 80, 70, 60, 50, 40, 30, 20, 0];
         }
 
         const urlInputs = document.querySelectorAll('#listeningUrlInputs input');

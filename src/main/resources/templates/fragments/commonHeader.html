@@ -22,19 +22,32 @@
               마이페이지
             </a>
             <ul class="dropdown-menu">
-              <li><a class="dropdown-item" href="mypage">내정보</a></li>
+              <li><a class="dropdown-item" href="myPage">내정보</a></li>
               <li><a class="dropdown-item" href="#">내시험보기</a></li>
-              <li><hr class="dropdown-divider"></li>
-              <li><a class="dropdown-item" href="#">회원탈퇴</a></li>
             </ul>
           </li>
-          <li id="adminMenu" class="nav-item dropdown" style="display: none;">
+          <li id="adminQuestionMenu" class="nav-item dropdown" style="display: none;">
             <a class="nav-link dropdown-toggle text-white" role="button" data-bs-toggle="dropdown" aria-expanded="false">
               문제관리
             </a>
             <ul class="dropdown-menu">
               <li><a class="dropdown-item" href="/admin/question/add">문제추가</a></li>
               <li><a class="dropdown-item" href="/admin/question/list">문제목록/수정</a></li>
+            </ul>
+          </li>
+          <li id="userManageMenu" class="nav-item" style="display: none;">
+            <a class="nav-link text-white" href="/admin/userRole">유저 권한 관리</a>
+          </li>
+          <li id="subjectManageMenu" class="nav-item" style="display: none;">
+            <a class="nav-link text-white" href="/admin/subjectManage">시험 과목 관리</a>
+          </li>
+          <li id="examInfoMenu" class="nav-item dropdown" style="display: none;">
+            <a class="nav-link dropdown-toggle text-white" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              시험 정보 관리
+            </a>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="/admin/examInfo">시험 등급 관리</a></li>
+              <li><a class="dropdown-item" href="/admin/listeningExamInfo">듣기 과목 관리</a></li>
             </ul>
           </li>
         </ul>
@@ -56,7 +69,10 @@
         const userRole = payload.role || payload.auth || null; // 서버 발급 구조에 따라 'role' 또는 'auth' 키 확인
 
         if (userRole === 'ADMIN') {
-          document.getElementById('adminMenu').style.display = 'block';
+          document.getElementById('adminQuestionMenu').style.display = 'block';
+          document.getElementById("userManageMenu").style.display = "block";
+          document.getElementById("subjectManageMenu").style.display = "block";
+          document.getElementById("examInfoMenu").style.display = "block";
         }
 
         if (window.location.search.includes('token=')) {

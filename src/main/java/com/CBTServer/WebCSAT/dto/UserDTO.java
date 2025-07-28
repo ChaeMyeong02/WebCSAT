@@ -1,9 +1,7 @@
 package com.CBTServer.WebCSAT.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import com.CBTServer.WebCSAT.domain.User;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
@@ -11,6 +9,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter @Setter
+@Builder
 public class UserDTO {
     private Long userId;
     private String email;
@@ -19,4 +18,16 @@ public class UserDTO {
     private String oauth2;
     private String role;
     private LocalDateTime created_at;
+
+    public static UserDTO fromEntity(User user) {
+        return UserDTO.builder()
+                .userId(user.getUserId())
+                .email(user.getEmail())
+                .password(user.getPassword())
+                .nickname(user.getNickname())
+                .oauth2(user.getOauth2())
+                .role(user.getRole())
+                .created_at(user.getCreatedAt())
+                .build();
+    }
 }

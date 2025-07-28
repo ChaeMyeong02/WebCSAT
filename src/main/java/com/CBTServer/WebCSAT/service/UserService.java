@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /* Service about UserManagementSystem */
 @RequiredArgsConstructor
@@ -69,5 +70,31 @@ public class UserService {
             userDTOList.add(userDTO);
         }
         return userDTOList;
+    }
+
+    public void withdrawUserByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+
+        // 식별 정보 제거
+        user.setEmail("deleted_" + UUID.randomUUID() + "@deleted.com");
+        user.setNickname("탈퇴한 사용자");
+        user.setOauth2("withdrawn");
+
+        userRepository.save(user);
+    }
+
+    public boolean isAdmin(String email) {
+        return userRepository.findByEmail(email)
+                .map(user -> "ADMIN".equals(user.getRole()))
+                .orElse(false);
+    }
+
+    public void changeRole(Long userId, String role) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 사용자가 존재하지 않습니다."));
+
+        user.setRole(role);
+        userRepository.save(user);
     }
 }

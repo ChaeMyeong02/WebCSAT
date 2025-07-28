@@ -184,7 +184,7 @@ async function loadIconList() {
       delBtn.addEventListener("click", async (e) => {
         e.stopPropagation();
         if (!confirm("정말 삭제하시겠습니까?")) return;
-        const res = await fetch(`/api/icons?url=${icon.url}`, {
+        const res = await fetch(`/api/icons?url=${encodeURIComponent(icon.url)}`, {
           method: "DELETE",
           headers: {
             "Authorization": `Bearer ${token}` // ✅ 토큰 추가
@@ -329,7 +329,7 @@ async function loadImageList() {
       delBtn.addEventListener("click", async (e) => {
         e.stopPropagation();
         if (!confirm("정말 삭제하시겠습니까?")) return;
-        const res = await fetch(`/api/images?url=${img.url}`, {
+        const res = await fetch(`/api/images?url=${encodeURIComponent(img.url)}`, {
           method: "DELETE",
           headers: {
             "Authorization": `Bearer ${token}` // ✅ 토큰 추가
@@ -338,8 +338,10 @@ async function loadImageList() {
         if (res.ok) {
           alert("삭제가 완료되었습니다.");
           await loadImageList();
+        } else {
+          const message = await res.text(); // 서버에서 보낸 메시지 읽기
+          alert(message || "삭제 실패");
         }
-        else alert("삭제 실패");
       });
 
       thumb.addEventListener("click", () => {

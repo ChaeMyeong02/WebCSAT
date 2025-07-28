@@ -110,4 +110,9 @@ public class TokenProvider {
                 .parseClaimsJws(token)
                 .getBody();
     }
+
+    public String getEmail(String token) {
+        return getClaims(token).getSubject(); // subject = email
+    }
+
 }

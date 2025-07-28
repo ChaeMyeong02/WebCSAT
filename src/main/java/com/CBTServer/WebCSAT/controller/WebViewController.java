@@ -26,11 +26,5 @@ public class WebViewController {
         return "index";
     }
 
-    @GetMapping("/test-auth")
-    public ResponseEntity<?> testAuth(Authentication authentication) {
-        System.out.println("Principal: " + authentication.getPrincipal());
-        System.out.println("Authorities: " + authentication.getAuthorities());
-        return ResponseEntity.ok(authentication.getAuthorities());
-    }
 
 }

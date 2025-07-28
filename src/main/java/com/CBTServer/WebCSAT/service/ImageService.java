@@ -74,7 +74,7 @@ public class ImageService {
 
     public void deleteImage(String url) {
         if (questionRepository.isImageUrlUsedAnywhere(url)) {
-            throw new IllegalStateException("문제에서 사용 중인 이미지입니다.");
+            throw new IllegalStateException("다른 문제에서 사용 중인 이미지입니다.");
         }
         imageMetaRepository.deleteById(url);
     }
