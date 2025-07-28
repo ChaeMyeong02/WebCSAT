@@ -1,15 +1,16 @@
 package com.CBTServer.WebCSAT.controller;
 
+import com.CBTServer.WebCSAT.config.jwt.TokenProvider;
 import com.CBTServer.WebCSAT.domain.*;
 import com.CBTServer.WebCSAT.dto.ExamDTO;
 import com.CBTServer.WebCSAT.dto.SubmittedAnswerDTO;
-import com.CBTServer.WebCSAT.repository.ImageMetaRepository;
-import com.CBTServer.WebCSAT.repository.QuestionRepository;
-import com.CBTServer.WebCSAT.repository.SubclassRepository;
-import com.CBTServer.WebCSAT.repository.SubjectRepository;
+import com.CBTServer.WebCSAT.repository.*;
 import com.CBTServer.WebCSAT.service.ExamService;
 import com.CBTServer.WebCSAT.service.QuestionService;
 import com.CBTServer.WebCSAT.service.SubjectSubclassService;
+import com.CBTServer.WebCSAT.service.UserDetailService;
+import com.amazonaws.services.ec2.model.UserData;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -19,6 +20,8 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.sql.Time;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +47,17 @@ public class ExamController {
     @Autowired
     private ImageMetaRepository imageMetaRepository;
 
+    @Autowired
+    private ExamRepository examRepository;
+
+    @Autowired
+    private TokenProvider tokenProvider;
+
+    @Autowired
+    private UserDetailService userDetailService;
+
+    @Autowired
+    private SubjectRepository subjectRepository;
 
     @GetMapping("/selectType")
     public String selectTypePage() {
@@ -203,39 +217,55 @@ public class ExamController {
         model.addAttribute("question", question);
         model.addAttribute("subclassId", subclassId);
         model.addAttribute("subjectId", subjectId);
-
+        model.addAttribute("finished", false);
         return "test/bankAnswerResult";
     }
 
 
-    /** ✅ 3. 시험 제출 */
     @PostMapping("/submitExam")
-    public String submitExam(@AuthenticationPrincipal User user,
-                             @RequestParam Long subclassId,
-                             @RequestParam String csatDate,
-                             @ModelAttribute ExamDTO dto,
-                             Model model) {
+    public String submitExam(HttpServletRequest request,
+                         @RequestParam Long subclassId,
+                         @RequestParam String csatDate,
+                         @RequestParam int elapsedTime,
+                         @ModelAttribute ExamDTO dto) {
 
-        // ✅ 더미 시험 제출 차단
-        if (subclassId == 0 || "더미용".equals(csatDate)) {
-            model.addAttribute("isDummy", true);  // 더미 플래그
-            return "test/dummyBlocked";
+        // JWT 토큰 → 유저 이메일 꺼내기
+        String token = request.getHeader("Authorization");
+        if (token == null || !token.startsWith("Bearer ")) {
+        return "redirect:/login";
         }
 
+        token = token.substring(7); // "Bearer " 제거
+        String email = tokenProvider.getClaims(token).getSubject();
+        User user = userDetailService.loadUserByUsername(email);
+
+        // 시험 저장
         Subclass subclass = subclassRepository.findById(subclassId)
                 .orElseThrow(() -> new RuntimeException("부과목 없음: " + subclassId));
 
         List<SubmittedAnswerDTO> answerList = dto.toSubmittedAnswerList();
-        Exam exam = examService.submitExam(user, subclass, csatDate, answerList);
+        Exam savedExam = examService.submitExam(user, subclass, csatDate, answerList, elapsedTime);
+
+        // ✅ examId를 포함해 결과 페이지로 리디렉션
+        return "redirect:/examResult?examId=" + savedExam.getExamId();
+    }
+
+    @GetMapping("/examResult")
+    public String examResult(@RequestParam Long examId, Model model) {
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() -> new RuntimeException("시험 없음: " + examId));
+
         model.addAttribute("exam", exam);
+
+        // 시간 포맷 추가 (옵션)
+        Time duration = exam.getDuration();
+        String formattedDuration = (duration != null)
+                ? duration.toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+                : "-";
+        model.addAttribute("formattedDuration", formattedDuration);
 
         return "test/examResult";
     }
-
-    @Autowired
-    private SubjectRepository subjectRepository;
-
-
 }
 
 

@@ -26,8 +26,8 @@
 </head>
 <body>
 <div class="result-box">
-  <div th:if="${isCorrect}" class="result-title text-success">정답입니다! 🎉</div>
-  <div th:if="${!isCorrect}" class="result-title text-danger">오답입니다 😢</div>
+  <div th:if="${isCorrect != null and isCorrect}" class="result-title text-success">정답입니다! 🎉</div>
+  <div th:if="${isCorrect != null and !isCorrect}" class="result-title text-danger">오답입니다 😢</div>
 
   <p class="mt-4">더 푸시겠습니까?</p>
 
@@ -40,7 +40,7 @@
   <a th:href="@{/selectType}" class="btn btn-secondary ms-3">아니오</a>
 </div>
 </body>
-<script th:if="${finished}" th:inline="javascript">
+<script th:if="${finished != null and finished}" th:inline="javascript">
   alert("문제를 모두 푸셨습니다! 초기화면으로 돌아갑니다.");
   window.location.href = "/";
 </script>

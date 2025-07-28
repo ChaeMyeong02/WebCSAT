@@ -68,7 +68,6 @@ public class TokenProvider {
                 .compact();
     }
 
-
     public boolean validToken(String token) {
         try {
             Jwts.parser()
@@ -103,7 +102,7 @@ public class TokenProvider {
         return claims.get("id", Long.class);
     }
 
-    private Claims getClaims(String token) {
+    public Claims getClaims(String token) {
         return Jwts.parser()
                 .setSigningKey(jwtProperties.getSecretKey())
                 .build()

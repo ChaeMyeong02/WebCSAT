@@ -8,7 +8,7 @@
 
     <style>
         body.gradient-custom {
-            background: linear-gradient(to right, rgba(46, 204, 113, 1), rgba(52, 152, 219, 1));
+            background: linear-gradient(to right, rgba(155, 89, 182, 1), rgba(52, 152, 219, 1));
             min-height: 100vh;
         }
 
@@ -47,19 +47,23 @@
         }
     </style>
 </head>
-<body class="gradient-custom d-flex justify-content-center align-items-center">
+<body class="gradient-custom d-flex flex-column">
 
-<div class="card card-custom text-center" style="width: 100%; max-width: 500px;">
-    <h2 class="mb-4">문제 유형을 선택하세요</h2>
+<!-- 툴바는 항상 최상단 -->
+<th:block th:replace="~{fragments/commonHeader :: header}"></th:block>
 
-    <form th:action="@{/selectSubject}" method="post">
-        <div class="d-flex justify-content-center gap-3 flex-wrap">
-
-            <button type="submit" name="questionType" value="문제은행" class="btn btn-bank btn-custom">문제은행</button>
-            <button type="submit" name="questionType" value="모의고사" class="btn btn-mock btn-custom">모의고사</button>
-        </div>
-    </form>
-</div>
+<!-- 메인 콘텐츠 -->
+<main class="container flex-grow-1 d-flex justify-content-center align-items-center">
+    <div class="card card-custom text-center" style="width: 100%; max-width: 500px;">
+        <h2 class="mb-4">문제 유형을 선택하세요</h2>
+        <form th:action="@{/selectSubject}" method="post">
+            <div class="d-flex justify-content-center gap-3 flex-wrap">
+                <button type="submit" name="questionType" value="문제은행" class="btn btn-bank btn-custom">문제은행</button>
+                <button type="submit" name="questionType" value="모의고사" class="btn btn-mock btn-custom">모의고사</button>
+            </div>
+        </form>
+    </div>
+</main>
 
 </body>
 </html>

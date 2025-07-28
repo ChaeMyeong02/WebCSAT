@@ -246,9 +246,17 @@ public class QuestionService {
     }
 
     public List<Question> getQuestions(Long subclassId, String csatDate) {
-        CsatDate csatDateEntity = csatDateRepository.findById(csatDate)
-                .orElseThrow(() -> new IllegalArgumentException("해당 csatDate 없음: " + csatDate));
-        return questionRepository.findBySubclass_SubclassIdAndCsatDate(subclassId, csatDateEntity);
+        Optional<CsatDate> csatDateEntityOpt = csatDateRepository.findById(csatDate);
+        if (!csatDateEntityOpt.isPresent()) {
+            System.out.println("csatDate '" + csatDate + "' 엔티티를 찾을 수 없습니다.");
+            throw new IllegalArgumentException("해당 csatDate 없음: " + csatDate);
+        }
+        CsatDate csatDateEntity = csatDateEntityOpt.get();
+        System.out.println("csatDateEntity: " + csatDateEntity.getCsatDate());
+
+        List<Question> questions = questionRepository.findBySubclass_SubclassIdAndCsatDate(subclassId, csatDateEntity);
+        System.out.println("가져온 문제 개수: " + questions.size());
+        return questions;
     }
 
 }

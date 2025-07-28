@@ -28,9 +28,13 @@ public class ExamDTO {
 
     public List<SubmittedAnswerDTO> toSubmittedAnswerList() {
         List<SubmittedAnswerDTO> result = new ArrayList<>();
+
+        // 문제 개수는 questionIds 기준으로
         for (int i = 0; i < questionIds.size(); i++) {
-            result.add(new SubmittedAnswerDTO(questionIds.get(i), answers.get(i)));
+            String ans = (i < answers.size()) ? answers.get(i) : null;
+            result.add(new SubmittedAnswerDTO(questionIds.get(i), ans));
         }
+
         return result;
     }
 }

@@ -10,7 +10,7 @@ import com.CBTServer.WebCSAT.domain.Subclass;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.CBTServer.WebCSAT.dto.SubmittedAnswerDTO;
-
+import java.time.LocalTime;  // 추가
 import java.sql.Time;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -24,11 +24,11 @@ public class ExamService {
     private final ExamRepository examRepository;
     private final ExamQuestionRepository examQuestionRepository;
     private final QuestionRepository questionRepository;
-    private CsatDateRepository csatDateRepository;
+    private final CsatDateRepository csatDateRepository;
 
 
     @Transactional
-    public Exam submitExam(User user, Subclass subclass, String csatDate, List<SubmittedAnswerDTO> submittedAnswers)
+    public Exam submitExam(User user, Subclass subclass, String csatDate, List<SubmittedAnswerDTO> submittedAnswers, int elapsedTime)
     {
         // 1. 시험 객체 생성
         Exam exam = new Exam();
@@ -40,8 +40,9 @@ public class ExamService {
         exam.setTestDate(LocalDateTime.now());
 
         // 임시: 시작 시간 ~ 현재 시간 (예: 30분)
-        Duration duration = Duration.ofMinutes(30);
-        exam.setDuration(new Time(duration.toMillis()));
+        Duration duration = Duration.ofSeconds(elapsedTime);
+        LocalTime localTime = LocalTime.ofSecondOfDay(duration.getSeconds());
+        exam.setDuration(Time.valueOf(localTime));
 
         // 2. ExamQuestion 생성
         List<ExamQuestion> examQuestions = new ArrayList<>();

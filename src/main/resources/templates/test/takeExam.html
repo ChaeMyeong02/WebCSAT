@@ -130,19 +130,23 @@
 
 <div class="exam-header">
     <h2 th:text="${subjectName} + ' - ' + ${subclassName} + ' - ' + ${csatDate}">시험 제목</h2>
-    <p>경과시간: 50분 00초</p>
+    <p>남은시간: <span id="timer">50:00</span></p>
 </div>
 
-<form th:action="@{/submitExam}" method="post" id="examForm">
+<form id="examForm">
+    <input type="hidden" id="elapsedTime" name="elapsedTime" value="0" />
     <input type="hidden" name="subclassId" th:value="${subclassId}" />
     <input type="hidden" name="csatDate" th:value="${csatDate}" />
+    <input type="hidden" name="jwtToken" th:value="${jwt}" />
 
     <div class="exam-layout">
         <!-- 문제 2열 영역 -->
         <div class="question-section" style="display: flex;">
             <!-- 왼쪽 열 -->
             <div style="flex: 1; padding: 1rem;">
-                <div th:each="q, iStat : ${questions}" th:if="${iStat.index} < 10" class="question-box">
+                <div th:each="q, iStat : ${questions}"
+                     th:if="${iStat.index} < ${questions.size()} / 2"
+                     class="question-box">
                     <!-- 공통 지문 출력 (이전 문제와 다를 때만) -->
                     <div th:if="${q.questionArticle != null and (iStat.index == 0 or q.questionArticle.url != questions[iStat.index - 1].questionArticle?.url)}"
                          class="article-box"
@@ -212,14 +216,16 @@
                             ⑤ <span th:utext="${q.option5}"></span>
                         </label>
                     </div>
-
+                    <input type="hidden" th:name="'questionIds[' + ${iStat.index} + ']'" th:value="${q.questionId}" />
                 </div>
             </div>
 
             <!-- 오른쪽 열 -->
             <div style="flex: 1; padding: 1rem;">
 
-                <div th:each="q, iStat : ${questions}" th:if="${iStat.index} >= 10" class="question-box">
+                <div th:each="q, iStat : ${questions}"
+                     th:if="${iStat.index} >= ${questions.size()} / 2"
+                     class="question-box">
 
                     <!-- 공통 지문 출력 (이전 문제와 다를 때만) -->
                     <div th:if="${q.questionArticle != null and (iStat.index == 0 or q.questionArticle.url != questions[iStat.index - 1].questionArticle?.url)}"
@@ -323,8 +329,32 @@
         <button type="button" onclick="checkBeforeSubmit()">시험 제출</button>
     </div>
 </form>
-
 <script>
+
+    let remainingSeconds = 50 * 60; // 예: 50분
+    let totalElapsed = 0;
+
+    let timerInterval = setInterval(() => {
+        const minutes = Math.floor(remainingSeconds / 60);
+        const seconds = remainingSeconds % 60;
+
+        document.getElementById('timer').textContent =
+            String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+
+        // 경과 시간 업데이트
+        totalElapsed++;
+        document.getElementById("elapsedTime").value = totalElapsed;
+
+        if (remainingSeconds === 0) {
+            clearInterval(timerInterval);
+            alert('시험 시간이 종료되었습니다. 자동 제출합니다.');
+            document.getElementById("examForm").submit();
+        }
+
+        remainingSeconds--;
+    }, 1000);
+
+
     function selectAnswer(btn) {
         const index = btn.getAttribute('data-index');
         const value = btn.getAttribute('data-value');
@@ -349,24 +379,43 @@
     }
 }
 
-    function checkBeforeSubmit() {
-        const total = document.querySelectorAll('.omr-line').length;
-        let unanswered = [];
+function checkBeforeSubmit() {
+    const total = document.querySelectorAll('.omr-line').length;
+    let unanswered = [];
 
-        for (let i = 0; i < total; i++) {
-            const selected = document.querySelector(`input[name="answers[${i}]"]:checked`);
-            if (!selected) {
-                unanswered.push(i + 1); // 실제 번호는 1부터 시작
-            }
+    for (let i = 0; i < total; i++) {
+        const selected = document.querySelector(`input[name="answers[${i}]"]:checked`);
+        if (!selected) {
+            unanswered.push(i + 1);
         }
-
-        if (unanswered.length > 0) {
-            const confirmSubmit = confirm(`풀지 않은 문제가 ${unanswered.length}개 있습니다.\n(문제 번호: ${unanswered.join(', ')})\n제출하시겠습니까? 미응답은 오답 처리됩니다.`);
-            if (!confirmSubmit) return;
-        }
-
-        document.getElementById("examForm").submit();
     }
+
+    if (unanswered.length > 0) {
+        const confirmSubmit = confirm(`풀지 않은 문제가 ${unanswered.length}개 있습니다.\n(문제 번호: ${unanswered.join(', ')})\n제출하시겠습니까? 미응답은 오답 처리됩니다.`);
+        if (!confirmSubmit) return;
+    }
+
+    const form = document.getElementById("examForm");
+    const formData = new FormData(form);
+
+    const token = localStorage.getItem("token"); // ✅ 반드시 필요
+
+    fetch('/submitExam', {
+    method: 'POST',
+    headers: {
+        'Authorization': 'Bearer ' + token
+    },
+    body: formData
+}).then(res => {
+    if (res.redirected) {
+        window.location.href = res.url;
+    } else {
+        return res.text().then(html => {
+            document.body.innerHTML = html;
+        });
+    }
+});
+}
 
 </script>
 
