@@ -254,8 +254,8 @@ public class QuestionService {
         CsatDate csatDateEntity = csatDateEntityOpt.get();
         System.out.println("csatDateEntity: " + csatDateEntity.getCsatDate());
 
-        List<Question> questions = questionRepository.findBySubclass_SubclassIdAndCsatDate(subclassId, csatDateEntity);
-        System.out.println("가져온 문제 개수: " + questions.size());
+        List<Question> questions = questionRepository
+                .findBySubclass_SubclassIdAndCsatDateOrderByNumAsc(subclassId, csatDateEntity);
         return questions;
     }
 

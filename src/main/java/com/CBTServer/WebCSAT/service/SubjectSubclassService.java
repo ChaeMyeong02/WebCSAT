@@ -45,6 +45,10 @@ public class SubjectSubclassService {
         return dtoList;
     }
 
+    public List<Subclass> findSubclassByOptional(boolean optional) {
+        return subclassRepository.findByOptional(optional);
+    }
+
     public SubjectDTO saveSubject(SubjectDTO subjectDTO) {
         Subject subject = new Subject();
         subject.setSubjectName(subjectDTO.getSubjectName());

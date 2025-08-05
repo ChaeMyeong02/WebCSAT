@@ -29,4 +29,7 @@ public interface QuestionRepository  extends JpaRepository<Question, Long> {
 
     @Query("SELECT q FROM Question q WHERE q.subclass.subclassId = :subclassId AND q.csatDate.csatDate = :csatDate")
     List<Question> findBySubclassIdAndCsatDateString(@Param("subclassId") Long subclassId, @Param("csatDate") String csatDate);
+
+    List<Question> findBySubclass_SubclassIdAndCsatDateOrderByNumAsc(Long subclassId, CsatDate csatDate);
+
 }

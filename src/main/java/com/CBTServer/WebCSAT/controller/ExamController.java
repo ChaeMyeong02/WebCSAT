@@ -3,6 +3,7 @@ package com.CBTServer.WebCSAT.controller;
 import com.CBTServer.WebCSAT.config.jwt.TokenProvider;
 import com.CBTServer.WebCSAT.domain.*;
 import com.CBTServer.WebCSAT.dto.ExamDTO;
+import com.CBTServer.WebCSAT.dto.QuestionDTO;
 import com.CBTServer.WebCSAT.dto.SubmittedAnswerDTO;
 import com.CBTServer.WebCSAT.repository.*;
 import com.CBTServer.WebCSAT.service.ExamService;
@@ -10,7 +11,10 @@ import com.CBTServer.WebCSAT.service.QuestionService;
 import com.CBTServer.WebCSAT.service.SubjectSubclassService;
 import com.CBTServer.WebCSAT.service.UserDetailService;
 import com.amazonaws.services.ec2.model.UserData;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -22,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.sql.Time;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +64,7 @@ public class ExamController {
     @Autowired
     private SubjectRepository subjectRepository;
 
+
     @GetMapping("/selectType")
     public String selectTypePage() {
         return "test/selectType"; // 문제은행 / 모의고사 선택 화면
@@ -69,7 +75,9 @@ public class ExamController {
         model.addAttribute("questionType", questionType); // "모의고사" or "문제은행"
 
         model.addAttribute("subjects", subjectSubclassService.findAllSubject());
-        model.addAttribute("subclasses", subjectSubclassService.findAllSubclass());
+
+        // ✅ 선택과목만 전달 (공통과목 제외)
+        model.addAttribute("subclasses", subjectSubclassService.findSubclassByOptional(true));
 
         // ✅ questionType에 따라 csatDate를 필터링
         List<String> csatDates = questionService.getCsatDatesByType(questionType);
@@ -84,66 +92,79 @@ public class ExamController {
                            @RequestParam(required = false) String questionType,
                            Model model) {
         try {
-
-            // ✅ 1. 문제은행일 경우 csatDate를 강제로 "문제은행용"으로 설정
             if ("문제은행".equals(questionType)) {
                 csatDate = "문제은행용";
             }
 
-            // ✅ 2. 모의고사인데 응시월을 선택하지 않은 경우 에러 처리
             if (!"문제은행".equals(questionType) && (csatDate == null || csatDate.isEmpty())) {
                 model.addAttribute("error", "응시 월이 필요합니다.");
                 return "error";
             }
 
+            // ✅ 선택 subclass 문제
             List<Question> questions = questionService.getQuestions(subclassId, csatDate);
 
+            // ✅ 공통 subclass 문제도 추가
+            Subclass selectedSubclass = subclassRepository.findById(subclassId).orElse(null);
+            if (selectedSubclass != null && selectedSubclass.getSubject() != null) {
+                Long subjectId = selectedSubclass.getSubject().getSubjectId();
+                List<Subclass> commons = subclassRepository.findBySubjectSubjectIdAndOptional(subjectId, false);
+                for (Subclass common : commons) {
+                    questions.addAll(questionService.getQuestions(common.getSubclassId(), csatDate));
+                    questions.sort(Comparator
+                            .comparing((Question q) -> q.getSubclass().getSubclassId())
+                            .thenComparingInt(Question::getNum));
+                }
+            }
 
-
-            // ✅ 부과목 가져오기
-            Subclass subclass = subclassRepository.findById(subclassId).orElse(null);
-            String subclassName = subclass != null ? subclass.getSubclassName() : "null";
-
-            // ✅ 과목 가져오기
-            String subjectName = (subclass != null && subclass.getSubject() != null)
-                    ? subclass.getSubject().getSubjectName() : "null";
-
+            // ✅ 더미 문제 대체
             if (questions == null || questions.isEmpty()) {
-                // ✅ 이미지 URL로 ImageMeta 조회
-                String dummyImageUrl = "https://imandjangcbt-bucket.s3.ap-southeast-2.amazonaws.com/%EB%AC%B8%EC%A0%9C%EC%9D%80%ED%96%89%EC%9A%A9/1/ebb722f5-a10e-4bf3-9a23-a8cb51fecfde_1.png";
-                ImageMeta articleImage = imageMetaRepository.findById(dummyImageUrl).orElse(null);
+                String dummyImageUrl = "https://imandjangcbt-bucket.s3.ap-southeast-2.amazonaws.com/문제은행용/더미.png";
+                ImageMeta dummyImage = imageMetaRepository.findById(dummyImageUrl).orElse(null);
 
                 Question sample = Question.builder()
                         .questionId(0L)
-                        .questionTitle("더미 문제 제목입니다.")
-                        .questionArticle(articleImage)
+                        .questionTitle("더미 문제입니다.")
+                        .questionArticle(dummyImage)
                         .questionContext(null)
-                        .option1("1번 보기")
-                        .option2("2번 보기")
-                        .option3("3번 보기")
-                        .option4("4번 보기")
-                        .option5("5번 보기")
+                        .option1("보기 1")
+                        .option2("보기 2")
+                        .option3("보기 3")
+                        .option4("보기 4")
+                        .option5("보기 5")
                         .score(0)
                         .questionType(true)
                         .csatDate(null)
                         .build();
 
-                model.addAttribute("questions", List.of(sample));
-                model.addAttribute("subclassId", 0);
-                model.addAttribute("csatDate", "더미용");
+                questions = List.of(sample);
                 model.addAttribute("isDummy", true);
-                return "test/takeExam";
             }
 
-            model.addAttribute("questions", questions);
+            // ✅ 과목 및 부과목 정보
+            String subclassName = selectedSubclass != null ? selectedSubclass.getSubclassName() : "null";
+            String subjectName = (selectedSubclass != null && selectedSubclass.getSubject() != null)
+                    ? selectedSubclass.getSubject().getSubjectName() : "null";
+            int examTimeMinutes = (selectedSubclass != null && selectedSubclass.getSubject() != null)
+                    ? selectedSubclass.getSubject().getMin() : 50;
+
+            model.addAttribute("subjectName", subjectName);
+            model.addAttribute("subclassName", subclassName);
+            model.addAttribute("examTimeMinutes", examTimeMinutes);
             model.addAttribute("subclassId", subclassId);
             model.addAttribute("csatDate", csatDate);
 
-            // ✅ 제목 관련 이름도 추가
-            model.addAttribute("subjectName", subjectName);
-            model.addAttribute("subclassName", subclassName);
+            // ✅ DTO 변환
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
 
-            // 공통 지문 범위 계산 (url -> [startIndex, endIndex])
+            List<QuestionDTO> dtoList = questions.stream()
+                    .map(QuestionDTO::new)
+                    .toList();
+
+            model.addAttribute("questionsJson", mapper.writeValueAsString(dtoList));
+
+            // ✅ 공통 지문 범위 계산
             Map<String, int[]> articleRangeMap = new HashMap<>();
             for (int i = 0; i < questions.size(); i++) {
                 Question q = questions.get(i);
@@ -156,17 +177,7 @@ public class ExamController {
                     articleRangeMap.get(url)[1] = i;
                 }
             }
-            model.addAttribute("articleRangeMap", articleRangeMap);
-
-
-            int total = questions.size();
-            int mid = (int) Math.ceil(total / 2.0); // 홀수면 왼쪽이 더 많음
-
-            List<Question> leftQuestions = questions.subList(0, mid);
-            List<Question> rightQuestions = questions.subList(mid, total);
-
-            model.addAttribute("leftQuestions", leftQuestions);
-            model.addAttribute("rightQuestions", rightQuestions);
+            model.addAttribute("articleRangeMapJson", mapper.writeValueAsString(articleRangeMap));
 
             return "test/takeExam";
 
@@ -176,6 +187,9 @@ public class ExamController {
             return "error";
         }
     }
+
+
+
 
     @PostMapping("/takeBankExam")
     public String takeBankExam(@RequestParam Long subjectId,
@@ -227,7 +241,8 @@ public class ExamController {
                          @RequestParam Long subclassId,
                          @RequestParam String csatDate,
                          @RequestParam int elapsedTime,
-                         @ModelAttribute ExamDTO dto) {
+                         @ModelAttribute ExamDTO dto,
+                             HttpSession session) {
 
         // JWT 토큰 → 유저 이메일 꺼내기
         String token = request.getHeader("Authorization");
@@ -245,13 +260,21 @@ public class ExamController {
 
         List<SubmittedAnswerDTO> answerList = dto.toSubmittedAnswerList();
         Exam savedExam = examService.submitExam(user, subclass, csatDate, answerList, elapsedTime);
+        // 세션에 examId 저장
+        session.setAttribute("lastExamId", savedExam.getExamId());
 
-        // ✅ examId를 포함해 결과 페이지로 리디렉션
-        return "redirect:/examResult?examId=" + savedExam.getExamId();
+        // examResult로 리다이렉트(파라미터 없이)
+        return "redirect:/examResult";
     }
 
     @GetMapping("/examResult")
-    public String examResult(@RequestParam Long examId, Model model) {
+    public String examResult(HttpSession session, Model model) {
+        Long examId = (Long) session.getAttribute("lastExamId");
+        if (examId == null) {
+            // 세션에 examId가 없으면 적절히 처리 (예: 에러 페이지나 로그인 페이지로 이동)
+            return "redirect:/login";
+        }
+
         Exam exam = examRepository.findById(examId)
                 .orElseThrow(() -> new RuntimeException("시험 없음: " + examId));
 

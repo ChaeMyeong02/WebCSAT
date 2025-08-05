@@ -14,62 +14,73 @@
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
+        /* ✅ 라벨만 간격 줄이고 가운데 정렬 */
+        .card-custom .form-label {
+          margin-bottom: .35rem;  /* 라벨-콤보 사이 간격 */
+          text-align: center;     /* 라벨 텍스트 가운데 정렬 */
+        }
+
+        .card-custom .form-select {
+          margin-bottom: 0;       /* 카드 내부 콤보 하단 여백 제거 */
+        }
+
         body.gradient-custom {
           background: linear-gradient(to right, rgba(155, 89, 182, 1), rgba(52, 152, 219, 1));
           min-height: 100vh;
         }
 
+        /* 전역 여백 규칙 유지해도 됨(위에서 카드 내부는 덮어씀) */
         select, input {
           margin-bottom: 1rem;
         }
 
-        label {
-          font-weight: bold;
-        }
+        label { font-weight: bold; }
     </style>
 </head>
 <body class="gradient-custom d-flex flex-column">
 
 <th:block th:replace="~{fragments/commonHeader :: header}"></th:block>
 
-<main class="container flex-grow-1 d-flex justify-content-center align-items-center">
-    <div class="card card-custom w-100" style="max-width: 600px;">
+<main class="container py-5">
+    <div class="card card-custom mx-auto" style="max-width: 900px;">
         <h2 class="text-center mb-4">시험 과목 선택</h2>
 
-        <form th:action="${questionType == '문제은행'} ? @{/takeBankExam} : @{/takeExam}" method="post">
+        <form id="examForm"
+              th:action="${questionType == '문제은행'} ? @{/takeBankExam} : @{/takeExam}"
+              method="post">
 
-            <input type="hidden" name="questionType" th:value="${questionType}" />
+            <input type="hidden" name="questionType" th:value="${questionType}"/>
 
-            <!-- 과목 선택 -->
-            <div class="mb-3">
-                <label for="subject-select" class="form-label">과목</label>
-                <select id="subject-select" name="subjectId" class="form-select" required>
-                    <option value="">과목 선택</option>
-                    <option th:each="subject : ${subjects}"
-                            th:value="${subject.subjectId}"
-                            th:text="${subject.subjectName}">
-                    </option>
-                </select>
+            <!-- 라벨행 -->
+            <div class="row gy-2 gx-3">
+                <div class="col-12 col-md-4">
+                    <label for="subject-select" class="form-label">과목</label>
+                    <select id="subject-select" name="subjectId" class="form-select" required>
+                        <option value="">과목 선택</option>
+                        <option th:each="subject : ${subjects}"
+                                th:value="${subject.subjectId}"
+                                th:text="${subject.subjectName}">
+                        </option>
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label for="subclass-select" class="form-label">부과목</label>
+                    <select id="subclass-select" name="subclassId" class="form-select" required>
+                        <option value="">부과목 선택</option>
+                    </select>
+                </div>
+
+                <div class="col-12 col-md-4" id="csat-date-wrapper">
+                    <label for="csat-date-select" class="form-label">응시 월</label>
+                    <select id="csat-date-select" name="csatDate" class="form-select" required>
+                        <option value="">응시 월 선택</option>
+                    </select>
+                </div>
             </div>
 
-            <!-- 부과목 선택 -->
-            <div class="mb-3">
-                <label for="subclass-select" class="form-label">부과목</label>
-                <select id="subclass-select" name="subclassId" class="form-select" required>
-                    <option value="">부과목 선택</option>
-                </select>
-            </div>
-
-            <!-- 응시 월 -->
-            <div id="csat-date-wrapper" class="mb-3">
-                <label for="csat-date-select" class="form-label">응시 월</label>
-                <select id="csat-date-select" name="csatDate" class="form-select" required>
-                    <option value="">응시 월 선택</option>
-                </select>
-            </div>
-
-            <div class="d-grid">
-                <button type="submit" class="btn btn-light fw-bold">시험 시작</button>
+            <div class="text-center mt-4">
+                <button type="submit" class="btn btn-light fw-bold px-5">시험 시작</button>
             </div>
         </form>
     </div>

@@ -11,4 +11,6 @@ public interface SubclassRepository extends JpaRepository<Subclass, Long> {
     List<Subclass> findAllBySubject(Subject subject);
     List<Subclass> findAllBySubject_SubjectId(Long subjectId);
     List<Subclass> findAllBySubject_SubjectName(String subjectName);
+    List<Subclass> findByOptional(boolean optional);
+    List<Subclass> findBySubjectSubjectIdAndOptional(Long subjectId, boolean optional);
 }
