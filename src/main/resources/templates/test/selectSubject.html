@@ -43,17 +43,29 @@
 
 <main class="container py-5">
     <div class="card card-custom mx-auto" style="max-width: 900px;">
+
+        <div class="d-flex justify-content-center mb-3">
+            <div class="btn-group" role="group">
+                <a class="btn btn-outline-warning"
+                   th:classappend="${questionType == '문제은행'} ? ' active' : ''"
+                   th:href="@{/selectSubject(questionType='문제은행')}">문제은행</a>
+                <a class="btn btn-outline-info"
+                   th:classappend="${questionType != '문제은행'} ? ' active' : ''"
+                   th:href="@{/selectSubject(questionType='모의고사')}">모의고사</a>
+            </div>
+        </div>
+
         <h2 class="text-center mb-4">시험 과목 선택</h2>
 
         <form id="examForm"
               th:action="${questionType == '문제은행'} ? @{/takeBankExam} : @{/takeExam}"
-              method="post">
-
+              method="post"
+              th:attr="data-question-type=${questionType}">
             <input type="hidden" name="questionType" th:value="${questionType}"/>
 
             <!-- 라벨행 -->
             <div class="row gy-2 gx-3">
-                <div class="col-12 col-md-4">
+                <div th:class="${questionType == '문제은행'} ? 'col-12 col-md-6' : 'col-12 col-md-4'">
                     <label for="subject-select" class="form-label">과목</label>
                     <select id="subject-select" name="subjectId" class="form-select" required>
                         <option value="">과목 선택</option>
@@ -64,14 +76,14 @@
                     </select>
                 </div>
 
-                <div class="col-12 col-md-4">
+                <div th:class="${questionType == '문제은행'} ? 'col-12 col-md-6' : 'col-12 col-md-4'">
                     <label for="subclass-select" class="form-label">부과목</label>
                     <select id="subclass-select" name="subclassId" class="form-select" required>
                         <option value="">부과목 선택</option>
                     </select>
                 </div>
 
-                <div class="col-12 col-md-4" id="csat-date-wrapper">
+                <div class="col-12 col-md-4" th:if="${questionType != '문제은행'}" id="csat-date-wrapper">
                     <label for="csat-date-select" class="form-label">응시 월</label>
                     <select id="csat-date-select" name="csatDate" class="form-select" required>
                         <option value="">응시 월 선택</option>
@@ -80,12 +92,38 @@
             </div>
 
             <div class="text-center mt-4">
-                <button type="submit" class="btn btn-light fw-bold px-5">시험 시작</button>
+                <!-- 문제은행 모드일 때: 버튼 2개 -->
+                <div th:if="${questionType == '문제은행'}">
+                    <!-- 한 문제씩 풀기: 기존 /takeBankExam -->
+                    <button type="submit"
+                            class="btn btn-light fw-bold px-4 me-2"
+                            th:formaction="@{/takeBankExam}">
+                        한 문제씩 풀기
+                    </button>
+
+                    <!-- 한 번에 풀기: 새 엔드포인트 /takeBankSet -->
+                    <button type="submit"
+                            class="btn btn-success fw-bold px-4"
+                            th:formaction="@{/takeBankSet}">
+                        한 번에 풀기
+                    </button>
+                </div>
+
+                <!-- 모의고사 모드(또는 그 외): 기존 버튼 1개 -->
+                <div th:if="${questionType != '문제은행'}">
+                    <button type="submit"
+                            class="btn btn-light fw-bold px-5">
+                        시험 시작
+                    </button>
+                </div>
+
             </div>
         </form>
     </div>
 </main>
-
+<script>
+    const mode = document.getElementById('examForm').dataset.questionType; // "문제은행" or "모의고사"
+</script>
 <script src="/js/selectSubject.js"></script>
 </body>
 </html>

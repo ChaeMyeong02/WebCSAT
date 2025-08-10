@@ -1,7 +1,5 @@
-// /js/exam.js
-
 (() => {
-  // ── 전역 데이터 주입 받기 ─────────────────────────────────────────────
+  // ── 전역 데이터 ───────────────────────────────────────────────────────
   const EX = window.__EXAM__ || {};
   const questions = Array.isArray(EX.questions) ? EX.questions : [];
   const articleRangeMap = EX.articleRangeMap || {};
@@ -14,13 +12,47 @@
   let isSubmitting = false;
 
   // ── 유틸 ──────────────────────────────────────────────────────────────
-  const $ = (sel, root = document) => root.querySelector(sel);
+  const $  = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => root.querySelectorAll(sel);
 
   function plainText(html) {
     const tmp = document.createElement('div');
     tmp.innerHTML = html ?? '';
     return (tmp.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  // ── 숨겨진 저장소 초기화/접근 ─────────────────────────────────────────
+  function initHiddenStore() {
+    const store = $('#hiddenStore');
+    store.innerHTML = ''; // 혹시 재진입 대비
+
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+
+      // questionIds[i]
+      const qid = document.createElement('input');
+      qid.type  = 'hidden';
+      qid.name  = `questionIds[${i}]`;
+      qid.value = (q && q.questionId != null) ? q.questionId : ''; // 더미면 빈 값
+      store.appendChild(qid);
+
+      // answers[i] (초기 미응답)
+      const ans = document.createElement('input');
+      ans.type  = 'hidden';
+      ans.name  = `answers[${i}]`;
+      ans.value = ''; // 아직 선택 안됨
+      store.appendChild(ans);
+    }
+  }
+
+  function getHiddenAnswer(i) {
+    const el = document.querySelector(`input[name="answers[${i}]"]`);
+    return el ? el.value : '';
+  }
+
+  function setHiddenAnswer(i, val) {
+    const el = document.querySelector(`input[name="answers[${i}]"]`);
+    if (el) el.value = String(val ?? '');
   }
 
   // ── 렌더링 ────────────────────────────────────────────────────────────
@@ -30,7 +62,6 @@
 
     const container = $('#questionContainer');
     container.innerHTML = '<div id="colL" class="question-col"></div><div id="colR" class="question-col"></div>';
-
     const colL = $('#colL');
     const colR = $('#colR');
 
@@ -69,6 +100,7 @@
         : '';
 
       const titleText = plainText(q.questionTitle);
+      const saved = getHiddenAnswer(globalIndex); // ✅ 저장된 값 복원
 
       box.innerHTML = `
         ${articleHtml}
@@ -76,15 +108,16 @@
         ${contextHtml}
         ${[1,2,3,4,5].map(n => {
           const optText = plainText(q['option' + n]);
+          const checked = (String(saved) === String(n)) ? 'checked' : '';
           return `
             <div>
-              <input type="radio" id="q${globalIndex}_${n}" name="answers[${globalIndex}]"
-                     value="${n}" onchange="syncOMR(${globalIndex}, ${n})">
+              <input type="radio" id="q${globalIndex}_${n}" name="visible_${globalIndex}"
+                     value="${n}" ${checked}
+                     onchange="syncOMR(${globalIndex}, ${n}); window.__setHidden?.(${globalIndex}, ${n});">
               <label for="q${globalIndex}_${n}" class="choice-label">${'①②③④⑤'[n-1]} ${optText}</label>
             </div>
           `;
         }).join('')}
-        <input type="hidden" name="questionIds[${globalIndex}]" value="${q.questionId}">
       `;
       return box;
     };
@@ -98,6 +131,12 @@
       colR.appendChild(makeBox(pageQuestions[j], globalIndex));
     }
 
+    // OMR 하이라이트 복원
+    for (let i = start; i < end; i++) {
+      const saved = getHiddenAnswer(i);
+      if (saved) syncOMR(i, Number(saved));
+    }
+
     $('#pageInfo').textContent = `${currentPage} / ${totalPages}`;
   }
 
@@ -105,15 +144,17 @@
     const omr = $('#omrContainer');
     omr.innerHTML = '';
     for (let i = 0; i < questions.length; i++) {
-      const omrLine = document.createElement('div');
-      omrLine.className = 'omr-line';
-      omrLine.innerHTML = `
+      const saved = getHiddenAnswer(i);
+      const line = document.createElement('div');
+      line.className = 'omr-line';
+      line.innerHTML = `
         <span style="cursor:pointer; font-weight:bold;" onclick="goToQuestion(${i})">Q${i + 1}:</span>
-        ${[1,2,3,4,5].map(n =>
-          `<button type="button" data-index="${i}" data-value="${n}" onclick="selectAnswer(this)">${'①②③④⑤'[n - 1]}</button>`
-        ).join('')}
+        ${[1,2,3,4,5].map(n => {
+          const selected = (String(saved) === String(n)) ? 'selected' : '';
+          return `<button type="button" data-index="${i}" data-value="${n}" class="${selected}" onclick="selectAnswer(this)">${'①②③④⑤'[n - 1]}</button>`;
+        }).join('')}
       `;
-      omr.appendChild(omrLine);
+      omr.appendChild(line);
     }
   }
 
@@ -132,35 +173,46 @@
   };
   window.goToQuestion = function(index) {
     const targetPage = Math.floor(index / questionsPerPage) + 1;
-    const isSamePage = currentPage === targetPage;
-    if (!isSamePage) {
+    if (currentPage !== targetPage) {
       currentPage = targetPage;
       renderQuestions();
       setTimeout(() => {
         const el = document.getElementById(`qbox-${index}`);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
+      }, 60);
     }
   };
 
-  // ── OMR 동기화 ──────────────────────────────────────────────────────
+  // ── OMR/라디오 선택 동기화 ───────────────────────────────────────────
   window.selectAnswer = function(btn) {
     const index = parseInt(btn.getAttribute('data-index'), 10);
     const value = parseInt(btn.getAttribute('data-value'), 10);
-    const targetInput = document.getElementById(`q${index}_${value}`);
-    if (targetInput) {
-      targetInput.checked = true;
-      $$(`.omr-line button[data-index='${index}']`).forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
+
+    // hidden 갱신
+    setHiddenAnswer(index, value);
+
+    // OMR 표시
+    $$(`.omr-line button[data-index='${index}']`).forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+
+    // 현재 페이지에 보이는 라디오도 체크 (없으면 페이지 이동)
+    const radio = document.getElementById(`q${index}_${value}`);
+    if (radio) {
+      radio.checked = true;
     } else {
       window.goToQuestion(index);
     }
   };
+
   window.syncOMR = function(index, value) {
+    // OMR 하이라이트
     $$(`.omr-line button[data-index='${index}']`).forEach(b => b.classList.remove('selected'));
     const btn = $(`.omr-line button[data-index='${index}'][data-value='${value}']`);
     if (btn) btn.classList.add('selected');
   };
+
+  // 라디오 onchange에서 hidden 갱신을 직접 부르기 위해 외부로 노출
+  window.__setHidden = setHiddenAnswer;
 
   // ── 제출/오버레이 ───────────────────────────────────────────────────
   function showLoading(msg = '답안을 제출하고 있어요…') {
@@ -172,18 +224,19 @@
     $$('button, select, input:not([type="hidden"]), textarea').forEach(el => el.disabled = true);
   }
   function hideLoading() {
-      document.getElementById('loadingOverlay').classList.remove('show');
-      document.body.style.overflow = '';
+    $('#loadingOverlay').classList.remove('show');
+    document.body.style.overflow = '';
   }
 
   window.checkBeforeSubmit = function(skipConfirm = false) {
     if (isSubmitting) return;
 
+    // ✅ 미응답 검사는 hidden 기준(전 인덱스 대상)
     const total = questions.length;
     const unanswered = [];
     for (let i = 0; i < total; i++) {
-      const selected = document.querySelector(`input[name="answers[${i}]"]:checked`);
-      if (!selected) unanswered.push(i + 1);
+      const a = getHiddenAnswer(i);
+      if (!a) unanswered.push(i + 1);
     }
     if (!skipConfirm && unanswered.length > 0) {
       const ok = confirm(`풀지 않은 문제가 ${unanswered.length}개 있습니다.\n(문제 번호: ${unanswered.join(', ')})\n제출하시겠습니까? 미응답은 오답 처리됩니다.`);
@@ -191,13 +244,11 @@
     }
 
     isSubmitting = true;
-
-    // FormData는 잠그기 전에 먼저 수집
-    const form = $('#examForm');
-    const formData = new FormData(form);
-    const token = localStorage.getItem('token');
-
     showLoading('답안을 제출하고 있어요…');
+
+    const form = $('#examForm');
+    const formData = new FormData(form); // hiddenStore에 전 인덱스가 다 들어있음
+    const token = localStorage.getItem('token');
 
     const controller = new AbortController();
     const timeoutId  = setTimeout(() => controller.abort(), 30000);
@@ -246,8 +297,9 @@
 
   // ── 초기화 ──────────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', () => {
-    renderOMR();
-    renderQuestions();
+    initHiddenStore();   // ✅ 전 인덱스 hidden 생성
+    renderOMR();         // ✅ OMR 그리기(저장값 반영)
+    renderQuestions();   // ✅ 화면 렌더(저장값 복원)
     startTimer();
   });
 })();

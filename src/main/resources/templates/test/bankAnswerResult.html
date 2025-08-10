@@ -29,19 +29,23 @@
   <div th:if="${isCorrect != null and isCorrect}" class="result-title text-success">정답입니다! 🎉</div>
   <div th:if="${isCorrect != null and !isCorrect}" class="result-title text-danger">오답입니다 😢</div>
 
-  <p class="mt-4">더 푸시겠습니까?</p>
+  <div th:if="${finished == null or !finished}">
+    <p class="mt-4">다음 문제로 넘어갈까요?</p>
+    <form th:action="@{/takeBankExam}" method="post" style="display: inline;">
+      <input type="hidden" name="subjectId"  th:value="${subjectId}" />
+      <input type="hidden" name="subclassId" th:value="${subclassId}" />
+      <input type="hidden" name="index"      th:value="${nextIndex}" />
+      <button type="submit" class="btn btn-primary">예</button>
+    </form>
+    <a th:href="@{/selectType}" class="btn btn-secondary ms-3">아니오</a>
+  </div>
 
-  <form th:action="@{/takeBankExam}" method="post" style="display: inline;">
-    <input type="hidden" name="subclassId" th:value="${subclassId}" />
-    <input type="hidden" name="subjectId" th:value="${subjectId}" />
-    <button type="submit" class="btn btn-primary">예</button>
-  </form>
-
-  <a th:href="@{/selectType}" class="btn btn-secondary ms-3">아니오</a>
+  <!-- 마지막 문제였던 경우 -->
+  <div th:if="${finished}">
+    <p class="mt-4">문제를 모두 푸셨습니다!</p>
+    <a th:href="@{/selectType}" class="btn btn-success">처음으로</a>
+  </div>
 </div>
+
 </body>
-<script th:if="${finished != null and finished}" th:inline="javascript">
-  alert("문제를 모두 푸셨습니다! 초기화면으로 돌아갑니다.");
-  window.location.href = "/";
-</script>
 </html>

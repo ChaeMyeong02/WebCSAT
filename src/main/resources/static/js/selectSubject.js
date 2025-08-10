@@ -2,56 +2,76 @@ document.addEventListener("DOMContentLoaded", function () {
   const token = localStorage.getItem('token');
   const questionType = document.querySelector('input[name="questionType"]')?.value || '';
 
-  const subjectSelect  = document.getElementById('subject-select');
-  const subclassSelect = document.getElementById('subclass-select');
-  const csatDateSelect = document.getElementById('csat-date-select');
-  const csatDateWrapper = document.getElementById('csat-date-wrapper');
+  const subjectSelect     = document.getElementById('subject-select');
+  const subclassSelect    = document.getElementById('subclass-select');
+  const csatDateSelect    = document.getElementById('csat-date-select');   // 모의고사에서만 존재
+  const csatDateWrapper   = document.getElementById('csat-date-wrapper');  // 모의고사에서만 존재
 
-  // 문제은행이면 응시월 숨김
-  if (questionType === '문제은행' && csatDateWrapper) {
-    csatDateWrapper.style.display = 'none';
-    csatDateSelect?.removeAttribute('required');
-  }
-
-  // 유틸
+  // ---- 유틸 ----
+  // ───── 401 알림 + 로그인 페이지 이동 로직 추가 ─────
   const fetchJSON = (url) =>
     fetch(url, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} })
-      .then(r => { if (!r.ok) throw new Error(`${url} ${r.status}`); return r.json(); });
+      .then(r => {
+        if (r.status === 401) {               // ➟ 인증 만료·비로그인
+          alert('로그인이 필요합니다!');       // ✅ 알림
+          window.location.href = '/login';    // ✅ 로그인 페이지로
+          throw new Error('Unauthorized');    // 이후 로직 중단
+        }
+        if (!r.ok) throw new Error(`${url} ${r.status}`);
+        return r.json();
+      });
 
   const setOptions = (selectEl, items, placeholder) => {
+    if (!selectEl) return; // ✅ null 가드
     selectEl.innerHTML = `<option value="">${placeholder}</option>`;
-    items.forEach(({ value, text }) => {
+    (items || []).forEach(({ value, text }) => {
       const opt = document.createElement('option');
       opt.value = value; opt.textContent = text;
       selectEl.appendChild(opt);
     });
   };
 
-  // 초기 상태: 부과목/응시월 비활성화
-  subclassSelect.disabled = true;
-  csatDateSelect.disabled = true;
-  setOptions(subclassSelect, [], '부과목 선택');
-  setOptions(csatDateSelect, [], '응시 월 선택');
+  const setDisabled = (el, v) => { if (el) el.disabled = !!v; }; // ✅ null 가드
 
-  // 과목 변경 → 선택과목(optional=1) 부과목만 로딩
+  // ---- 모드별 UI 처리 ----
+  // 문제은행이면 응시월 숨김(있을 때만)
+  if (questionType === '문제은행' && csatDateWrapper) {
+    csatDateWrapper.style.display = 'none';
+    csatDateSelect?.removeAttribute('required');
+  }
+
+  // ---- 초기 상태 ----
+  setDisabled(subclassSelect, true);
+  setOptions(subclassSelect, [], '부과목 선택');
+
+  // 모의고사일 때만 응시월 초기화/비활성
+  if (questionType !== '문제은행') {
+    setDisabled(csatDateSelect, true);
+    setOptions(csatDateSelect, [], '응시 월 선택');
+  }
+
+  // ---- 과목 변경 ----
   subjectSelect.addEventListener('change', () => {
     const subjectId = subjectSelect.value;
 
     // 부과목/응시월 초기화
     setOptions(subclassSelect, [], '부과목 선택');
-    setOptions(csatDateSelect, [], '응시 월 선택');
-    csatDateSelect.disabled = true;
+    if (questionType !== '문제은행') {
+      setOptions(csatDateSelect, [], '응시 월 선택');
+      setDisabled(csatDateSelect, true);
+    }
 
     if (!subjectId) {
-      subclassSelect.disabled = true;
+      setDisabled(subclassSelect, true);
       return;
     }
-    subclassSelect.disabled = false;
+    setDisabled(subclassSelect, false);
 
+    // 선택과목(optional=1)만 요청
     const q = new URLSearchParams({ subjectId, optional: '1' });
     fetchJSON(`/api/subclasses?${q.toString()}`)
       .then(list => {
-        // 혹시 optional 필터가 서버에서 무시되면 프런트에서 한 번 더 필터
+        // 서버가 optional 필터를 무시하는 경우를 대비해 프런트에서 한 번 더 필터
         const filtered = (Array.isArray(list) ? list : []).filter(sc => {
           const v = sc.optional ?? sc.is_optional ?? sc.optionalFlag;
           return v === true || v === 1 || v === '1';
@@ -61,37 +81,43 @@ document.addEventListener("DOMContentLoaded", function () {
           text : sc.subclassName ?? sc.subclass_name
         }));
         setOptions(subclassSelect, items, '부과목 선택');
+
+        // 옵션이 없으면 다시 비활성
+        if (!items.length) setDisabled(subclassSelect, true);
       })
       .catch(err => {
         console.error('부과목 로드 실패:', err);
-        subclassSelect.disabled = true;
+        setDisabled(subclassSelect, true);
       });
   });
 
-  // 부과목 변경 → 해당 부과목의 응시월 로딩
+  // ---- 부과목 변경 ----
   subclassSelect.addEventListener('change', () => {
     const subclassId = subclassSelect.value;
 
-    setOptions(csatDateSelect, [], '응시 월 선택');
-
-    // 문제은행 모드면 응시월 자체를 안 보이므로 스킵
+    // 문제은행 모드면 응시월 자체를 다루지 않음
     if (questionType === '문제은행') return;
 
+    // 모의고사: 응시월 select가 존재할 때만 처리
+    if (!csatDateSelect) return;
+
+    setOptions(csatDateSelect, [], '응시 월 선택');
+
     if (!subclassId) {
-      csatDateSelect.disabled = true;
+      setDisabled(csatDateSelect, true);
       return;
     }
-
-    csatDateSelect.disabled = false;
+    setDisabled(csatDateSelect, false);
 
     fetchJSON(`/api/csatDates?subclassId=${encodeURIComponent(subclassId)}`)
       .then(dates => {
         const items = (Array.isArray(dates) ? dates : []).map(d => ({ value: d, text: d }));
         setOptions(csatDateSelect, items, '응시 월 선택');
+        if (!items.length) setDisabled(csatDateSelect, true);
       })
       .catch(err => {
         console.error('응시월 로드 실패:', err);
-        csatDateSelect.disabled = true;
+        setDisabled(csatDateSelect, true);
       });
   });
 });

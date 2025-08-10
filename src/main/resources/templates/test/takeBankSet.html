@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>문제은행(한 번에)</title>
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body{background:#f8f9fa;padding:2rem;font-family:Arial,sans-serif}
+        .question-box{background:#fff;padding:1rem;border-radius:.75rem;
+                      box-shadow:0 2px 8px rgba(0,0,0,.06)}
+        .choice-label{display:block;padding:.5rem .75rem;border:1px solid #ddd;
+                      border-radius:.5rem;margin:.35rem 0;cursor:pointer}
+        input[type=radio]{display:none}
+        input[type=radio]:checked + .choice-label{
+            background:#3498db;color:#fff;font-weight:700}
+    </style>
+</head>
+<body>
+<div id="root" class="container" style="max-width:900px"></div>
+
+<!-- 숨겨둔 제출 폼 -->
+<form id="hiddenForm" th:action="@{/submitBankSet}" method="post" style="display:none">
+    <input type="hidden" name="subjectId"  th:value="${subjectId}">
+    <input type="hidden" name="subclassId" th:value="${subclassId}">
+</form>
+
+<!-- 서버에서 내려준 JSON 그대로 주입 -->
+<script th:inline="javascript">
+    /*<![CDATA[*/
+    const QUESTIONS = JSON.parse(/*[[${questionsJson}]]*/ '[]');
+    const subjectId  = /*[[${subjectId}]]*/ 0;
+    const subclassId = /*[[${subclassId}]]*/ 0;
+
+    // ── 방문 중(세션)에는 같은 순서 유지
+    const orderKey = `bankset-order-${subjectId}-${subclassId}`;
+    let order = sessionStorage.getItem(orderKey);
+
+    if (order) {
+      const idOrder = JSON.parse(order);
+      QUESTIONS.sort((a,b) => idOrder.indexOf(a.questionId) - idOrder.indexOf(b.questionId));
+    } else {
+      // 처음이면 한 번만 셔플하고 그 결과 저장
+      for (let i = QUESTIONS.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [QUESTIONS[i], QUESTIONS[j]] = [QUESTIONS[j], QUESTIONS[i]];
+      }
+      sessionStorage.setItem(orderKey, JSON.stringify(QUESTIONS.map(q => q.questionId)));
+    }
+    /*]]>*/
+</script>
+
+
+
+<script>
+    /* ───────── 상태 ───────── */
+    let idx = 0;
+    const answers = Array(QUESTIONS.length).fill('');
+
+    /* ───────── 헬퍼 ───────── */
+    const strip = s => (s||'')
+                       .replace(/<[^>]*>/g,'')    // 태그 제거
+                       .replace(/&nbsp;/g,' ').trim();
+
+    /* ───────── 렌더링 ───────── */
+    function render(){
+      const q = QUESTIONS[idx];
+      const root = document.getElementById('root');
+
+      /* 보기(존재하지 않는 옵션은 출력 X) */
+      const optionArr = [q.option1,q.option2,q.option3,q.option4,q.option5];
+      const optionHTML = optionArr.map((text,i)=>
+          text ? `<div>
+                    <input type="radio" id="opt${i}" name="choice" value="${i+1}"
+                           ${answers[idx]==i+1?'checked':''}>
+                    <label class="choice-label" for="opt${i}">
+                        ${'①②③④⑤'[i]} ${strip(text)}
+                    </label>
+                  </div>` : ''
+      ).join('');
+
+      root.innerHTML = `
+        <h3 class="mb-3">문제은행 (한 번에 풀기)</h3>
+
+        <div class="question-box mb-3">
+          <h5>Q${idx+1}. ${strip(q.questionTitle)}</h5>
+
+          ${ q.questionArticle
+              ? `<div class="text-center mb-2">
+                     <img src="${q.questionArticle}"
+                          style="max-width:100%;object-fit:contain">
+                 </div>` : '' }
+
+          ${ q.questionContext ? `<p>${strip(q.questionContext)}</p>` : ''}
+
+          ${ optionHTML }
+        </div>
+
+        <div class="text-center">
+          ${ idx>0
+              ? `<button id="stopBtn" class="btn btn-danger me-2">
+                     ${idx===QUESTIONS.length-1 ? '제출-채점' : '그만 풀기'}
+                 </button>` : '' }
+
+          ${ idx<QUESTIONS.length-1
+              ? `<button id="nextBtn" class="btn btn-primary">
+                     다음 문제
+                 </button>` : '' }
+        </div>
+      `;
+
+      /* 선택 이벤트 */
+      root.querySelectorAll('input[name=choice]').forEach(r=>{
+          r.addEventListener('change',e=> answers[idx]=parseInt(e.target.value));
+      });
+
+      /* 다음 문제 */
+      document.getElementById('nextBtn')?.addEventListener('click',e=>{
+          e.preventDefault(); idx++; render();
+      });
+
+      /* 그만 풀기 또는 마지막 문제 제출 */
+      document.getElementById('stopBtn')?.addEventListener('click',e=>{
+          e.preventDefault(); submitNow();
+      });
+    }
+
+    /* ───────── 제출 ───────── */
+function submitNow(){
+  const form = document.getElementById('hiddenForm');
+
+  QUESTIONS.forEach((q,i)=>{
+      addHidden(form,'questionIds', q.questionId);
+      addHidden(form,'answers',    answers[i] ?? '');   // 미응답 ⇒ ''
+  });
+
+  form.submit();
+}
+    function addHidden(form,name,val){
+      const input=document.createElement('input');
+      input.type='hidden'; input.name=name; input.value=val;
+      form.appendChild(input);
+    }
+
+    /* 첫 화면 */
+    render();
+</script>
+</body>
+</html>

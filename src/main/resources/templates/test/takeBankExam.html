@@ -52,35 +52,42 @@
     <input type="hidden" name="questionId" th:value="${question.questionId}" />
     <input type="hidden" name="subjectId" th:value="${subjectId}" />
     <input type="hidden" name="subclassId" th:value="${subclassId}" />
+    <input type="hidden" name="currentIndex" th:value="${currentIndex}" /> <!-- ✅ 추가 -->
 
-    <h4 th:text="'Q. ' + ${question.questionTitle}"></h4>
+
+    <h4 th:text="'Q. ' + ${question.questionTitle != null ? question.questionTitle.replaceAll('<[^>]*>', '') : ''}"></h4>
 
     <div th:if="${question.questionArticle != null}" class="text-center">
       <img th:src="${question.questionArticle.url}" alt="문제 이미지"
            style="max-width: 100%; object-fit: contain;">
     </div>
 
-    <p th:text="${question.questionContext}"></p>
+    <p th:text="${question.questionContext != null ? question.questionContext.replaceAll('<[^>]*>', '') : ''}"></p>
 
     <div>
-      <input type="radio" id="opt1" name="answer" value="1">
-      <label class="choice-label" for="opt1">① <span th:utext="${question.option1}"></span></label>
+      <input type="radio" id="opt1" name="answer" value="1" required>
+      <label class="choice-label" for="opt1">① <span th:text="${question.option1 != null ? question.option1.replaceAll('<[^>]*>', '') : ''}"></span>
+      </label>
     </div>
     <div>
       <input type="radio" id="opt2" name="answer" value="2">
-      <label class="choice-label" for="opt2">② <span th:utext="${question.option2}"></span></label>
+      <label class="choice-label" for="opt2">② <span th:text="${question.option2 != null ? question.option2.replaceAll('<[^>]*>', '') : ''}"></span>
+      </label>
     </div>
     <div>
       <input type="radio" id="opt3" name="answer" value="3">
-      <label class="choice-label" for="opt3">③ <span th:utext="${question.option3}"></span></label>
+      <label class="choice-label" for="opt3">③ <span th:text="${question.option3 != null ? question.option3.replaceAll('<[^>]*>', '') : ''}"></span>
+      </label>
     </div>
     <div>
       <input type="radio" id="opt4" name="answer" value="4">
-      <label class="choice-label" for="opt4">④ <span th:utext="${question.option4}"></span></label>
+      <label class="choice-label" for="opt4">④ <span th:text="${question.option4 != null ? question.option4.replaceAll('<[^>]*>', '') : ''}"></span>
+      </label>
     </div>
     <div>
       <input type="radio" id="opt5" name="answer" value="5">
-      <label class="choice-label" for="opt5">⑤ <span th:utext="${question.option5}"></span></label>
+      <label class="choice-label" for="opt5">⑤ <span th:text="${question.option5 != null ? question.option5.replaceAll('<[^>]*>', '') : ''}"></span>
+      </label>
     </div>
 
     <div class="btn-area">
