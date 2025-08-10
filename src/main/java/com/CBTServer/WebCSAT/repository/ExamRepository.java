@@ -1,6 +1,7 @@
 package com.CBTServer.WebCSAT.repository;
 
 import com.CBTServer.WebCSAT.domain.Exam;
+import com.CBTServer.WebCSAT.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -27,4 +28,10 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
 
     // 시험 기록 삭제
     void deleteByExamId(Long examId);
+
+    List<Exam> findByUser(User user);
+
+    List<Exam> findByUserAndCsatDate_CsatDate(User user, String csatDate);
+
+    int countByUser(User user);
 }

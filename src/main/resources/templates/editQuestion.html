@@ -33,6 +33,9 @@
       <h4 class="text-center mt-2">수정이 필요한 부분을 클릭하여 내용을 입력해 주세요.</h4>
       <div class="flex-grow-1 mx-2 mb-2 d-flex flex-column">
         <div class="text-end mb-2 d-flex justify-content-end align-items-center gap-2">
+          <button type="button" id="insertImageBtn" class="btn btn-primary btn-sm">
+            이미지 넣기
+          </button>
           <button type="button" id="insertIconBtn" class="btn btn-primary btn-sm">
             아이콘 넣기
           </button>
@@ -198,9 +201,17 @@ async function loadIconList() {
       });
 
       thumb.addEventListener("click", () => {
-        const range = quill.getSelection(true);
-        quill.clipboard.dangerouslyPasteHTML(range.index, `<img src="${icon.url}" style="height: 1em; vertical-align: middle;">`);
-        bootstrap.Modal.getInstance(document.getElementById("iconInsertModal")).hide();
+
+        if (currentImageTarget === 'field-title') {
+          document.getElementById('field-title').value += ` <img src="${img.url}"> `;
+        } else if (currentImageTarget === 'field-choice1') {
+          document.getElementById('field-choice1').value += ` <img src="${img.url}"> `;
+        } else if (currentImageTarget === 'quill-editor') {
+          const range = quill.getSelection(true);
+          quill.clipboard.dangerouslyPasteHTML(range.index, `<img src="${img.url}" style="max-width: 100%;">`);
+        }
+
+        bootstrap.Modal.getInstance(document.getElementById("imageSelectModal")).hide();
       });
 
       wrapper.appendChild(thumb);
@@ -313,6 +324,7 @@ async function loadImageList() {
     const images = await res.json(); // images = [{ url: 'https://...'}, ...]
 
     images.forEach(img => {
+    console.log("👀 rendering image:", img.url);
       const wrapper = document.createElement("div");
       wrapper.className = "position-relative";
 
@@ -345,19 +357,33 @@ async function loadImageList() {
       });
 
       thumb.addEventListener("click", () => {
-        if (currentImageTarget === 'field-title') {
+        if (currentImageTarget === 'quill-editor') {
+          bootstrap.Modal.getInstance(document.getElementById("imageSelectModal")).hide();
+
+          // ✅ 포커스 복원 후 삽입
+          setTimeout(() => {
+            quill.focus();
+            const range = quill.getSelection(true) || { index: quill.getLength() };
+            quill.clipboard.dangerouslyPasteHTML(range.index, `<img src="${img.url}" style="max-width: 100%;">`);
+          }, 150); // 모달 닫히고 난 후 처리
+        }
+
+        // 기존 stemImagePreview, optionImagePreview 처리 유지
+        else if (currentImageTarget === 'field-title') {
           const preview = document.getElementById("stemImagePreview");
           preview.src = img.url;
           preview.style.display = 'block';
           document.getElementById("clearStemImageBtn").style.display = 'block';
+          bootstrap.Modal.getInstance(document.getElementById("imageSelectModal")).hide();
         } else if (currentImageTarget === 'field-choice1') {
           const preview = document.getElementById("optionImagePreview");
           preview.src = img.url;
           preview.style.display = 'block';
           document.getElementById("clearOptionImageBtn").style.display = 'block';
+          bootstrap.Modal.getInstance(document.getElementById("imageSelectModal")).hide();
         }
-        bootstrap.Modal.getInstance(document.getElementById("imageSelectModal")).hide();
       });
+
 
       wrapper.appendChild(thumb);
       wrapper.appendChild(delBtn);
@@ -421,6 +447,11 @@ async function loadImageList() {
     document.addEventListener("DOMContentLoaded", function () {
       document.getElementById("selectStemImageBtn").addEventListener("click", () => openImageSelectModal("field-title"));
       document.getElementById("selectOptionImageBtn").addEventListener("click", () => openImageSelectModal("field-choice1"));
+      document.getElementById("insertImageBtn").addEventListener("click", () => {
+          currentImageTarget = 'quill-editor';
+          loadImageList(); // ✅ 이게 있어야 이미지 로드됨
+          new bootstrap.Modal(document.getElementById("imageSelectModal")).show();
+      });
 
       const pageTitle = document.getElementById("pageTitle");
       const subjectName = subjectNameMap[questionDTO.subjectId] || '알 수 없음';
@@ -436,7 +467,6 @@ async function loadImageList() {
               modules: {
                 toolbar: [
                   ['bold', 'italic', 'underline'],
-                  ['image'],
                   ['formula']
                 ]
               }
