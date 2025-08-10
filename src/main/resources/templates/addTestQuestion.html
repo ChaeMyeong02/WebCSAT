@@ -299,98 +299,107 @@
       cutWrapper.style.display = (!isObjective && isRelative) ? "block" : "none";
     }
 
-    // ✅ 3. 듣기 과목 업로드 UI 생성
-    function updateListeningUrlInputs() {
-      const subjectId = document.getElementById('subjectSelect').value;
-      const options = Array.from(document.querySelectorAll(`#subclassSelect option`));
-      const wrapper = document.getElementById("listeningUrlInputs");
-      wrapper.innerHTML = '';
+function updateListeningUrlInputs() {
+  const subjectId = document.getElementById('subjectSelect').value;
+  const allOptions = Array.from(document.querySelectorAll(`#subclassSelect option`));
+  const wrapper = document.getElementById("listeningUrlInputs");
+  wrapper.innerHTML = '';
 
-      const listeningSubclasses = options.filter(opt =>
-        opt.dataset.subjectId === subjectId &&
-        opt.dataset.listening === "true" &&
-        opt.selected === true
-      );
+  // ✅ 1. 현재 선택된 세부과목(선택과목)
+  const selectedListening = allOptions.filter(opt =>
+    opt.dataset.subjectId === subjectId &&
+    opt.dataset.listening === "true" &&
+    opt.selected
+  );
 
-      if (listeningSubclasses.length > 0) {
-        document.getElementById("listeningUrlWrapper").style.display = "block";
+  // ✅ 2. 숨겨진 공통과목 중 듣기과목도 포함
+  const hiddenListening = allOptions.filter(opt =>
+    opt.dataset.subjectId === subjectId &&
+    opt.dataset.listening === "true" &&
+    opt.dataset.optional === "false" // 공통과목
+  );
 
-        listeningSubclasses.forEach(subclass => {
-          const subclassId = subclass.value;
-          const subclassName = subclass.textContent;
+  // ✅ 3. 둘 다 합쳐서 중복 제거
+  const listeningSubclasses = [...new Set([...selectedListening, ...hiddenListening])];
 
-          const group = document.createElement("div");
-          group.classList.add("input-group");
+  if (listeningSubclasses.length > 0) {
+    document.getElementById("listeningUrlWrapper").style.display = "block";
 
-          const label = document.createElement("span");
-          label.classList.add("input-group-text");
-          label.textContent = subclassName;
+    listeningSubclasses.forEach(subclass => {
+      const subclassId = subclass.value;
+      const subclassName = subclass.textContent;
 
-          const fileInput = document.createElement("input");
-          fileInput.type = "file";
-          fileInput.accept = ".mp3";
-          fileInput.classList.add("form-control", "s3-upload");
-          fileInput.dataset.subclassId = subclassId;
+      const group = document.createElement("div");
+      group.classList.add("input-group");
 
-          const urlInput = document.createElement("input");
-          urlInput.type = "text";
-          urlInput.classList.add("form-control");
-          urlInput.placeholder = "S3 URL";
-          urlInput.readOnly = true;
-          urlInput.dataset.subclassId = subclassId;
-          urlInput.style.display = "none";
+      const label = document.createElement("span");
+      label.classList.add("input-group-text");
+      label.textContent = subclassName;
 
-          const cancelBtn = document.createElement("button");
-          cancelBtn.classList.add("btn", "btn-danger");
-          cancelBtn.textContent = "취소";
-          cancelBtn.type = "button";
-          cancelBtn.onclick = () => {
-            fileInput.disabled = false;
-            fileInput.value = '';
-            urlInput.value = '';
-            urlInput.style.display = 'none';
-            cancelBtn.style.display = 'none';
-          };
-          cancelBtn.style.display = 'none';
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = ".mp3";
+      fileInput.classList.add("form-control", "s3-upload");
+      fileInput.dataset.subclassId = subclassId;
 
-          fileInput.addEventListener("change", async () => {
-            const file = fileInput.files[0];
-            if (!file) return;
+      const urlInput = document.createElement("input");
+      urlInput.type = "text";
+      urlInput.classList.add("form-control");
+      urlInput.placeholder = "S3 URL";
+      urlInput.readOnly = true;
+      urlInput.dataset.subclassId = subclassId;
+      urlInput.style.display = "none";
 
-            const formData = new FormData();
-            formData.append("file", file);
+      const cancelBtn = document.createElement("button");
+      cancelBtn.classList.add("btn", "btn-danger");
+      cancelBtn.textContent = "취소";
+      cancelBtn.type = "button";
+      cancelBtn.onclick = () => {
+        fileInput.disabled = false;
+        fileInput.value = '';
+        urlInput.value = '';
+        urlInput.style.display = 'none';
+        cancelBtn.style.display = 'none';
+      };
+      cancelBtn.style.display = 'none';
 
-            try {
-              const res = await fetch("/api/upload", {
-                method: "POST",
-                headers: {
-                  "Authorization": getToken()
-                },
-                body: formData
-              });
-              if (!res.ok) throw new Error("Upload failed");
-              const url = await res.text();
+      fileInput.addEventListener("change", async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
 
-              urlInput.value = url;
-              urlInput.style.display = 'block';
-              fileInput.disabled = true;
-              cancelBtn.style.display = 'inline-block';
-            } catch (err) {
-              console.error(err);
-              alert("업로드 실패: " + err.message);
-            }
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Authorization": getToken() },
+            body: formData
           });
+          if (!res.ok) throw new Error("Upload failed");
+          const url = await res.text();
 
-          group.appendChild(label);
-          group.appendChild(fileInput);
-          group.appendChild(urlInput);
-          group.appendChild(cancelBtn);
-          wrapper.appendChild(group);
-        });
-      } else {
-        document.getElementById("listeningUrlWrapper").style.display = "none";
-      }
-    }
+          urlInput.value = url;
+          urlInput.style.display = 'block';
+          fileInput.disabled = true;
+          cancelBtn.style.display = 'inline-block';
+        } catch (err) {
+          console.error(err);
+          alert("업로드 실패: " + err.message);
+        }
+      });
+
+      group.appendChild(label);
+      group.appendChild(fileInput);
+      group.appendChild(urlInput);
+      group.appendChild(cancelBtn);
+      wrapper.appendChild(group);
+    });
+  } else {
+    document.getElementById("listeningUrlWrapper").style.display = "none";
+  }
+}
+
 
     // ✅ 4. 문제 추가 (문제은행 vs 모의고사)
     function submitAddQuestion(mode) {

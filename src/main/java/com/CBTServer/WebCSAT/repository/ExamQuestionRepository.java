@@ -3,6 +3,7 @@ package com.CBTServer.WebCSAT.repository;
 import com.CBTServer.WebCSAT.domain.Exam;
 import com.CBTServer.WebCSAT.domain.ExamQuestion;
 import com.CBTServer.WebCSAT.domain.Subclass;
+import com.CBTServer.WebCSAT.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -23,4 +24,10 @@ public interface ExamQuestionRepository extends JpaRepository<ExamQuestion, Long
 
     // 삭제
     void deleteByJoinId(Long joinId);
+
+    List<ExamQuestion> findByExam_UserAndIsCorrectFalse(User user);
+
+    List<ExamQuestion> findByQuestion_QuestionId(Long questionId);
+
+    List<ExamQuestion> findByIsCorrectFalse();
 }

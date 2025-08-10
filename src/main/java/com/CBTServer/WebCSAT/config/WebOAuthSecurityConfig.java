@@ -52,10 +52,8 @@ public class WebOAuthSecurityConfig {
 
 
         http.exceptionHandling(exception -> exception
-                .accessDeniedHandler((request, response, accessDeniedException) -> {
-                    response.setStatus(HttpStatus.FORBIDDEN.value());
-                })
-                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                .accessDeniedPage("/login") // 403 → /login
+                .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")) // 401 → /login
         );
 
         http.authorizeHttpRequests(auth -> auth
