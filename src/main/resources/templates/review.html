@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8" />
+    <title>리마인드</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <style>
+        .omr .btn { pointer-events: none; } /* 클릭 막기 */
+    </style>
+</head>
+<body>
+<th:block th:replace="~{fragments/commonHeader :: header}"></th:block>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 id="examTitle" class="mb-0">리마인드</h3>
+        <div class="text-muted"><span id="meta"></span></div>
+    </div>
+
+    <div id="qwrap" class="vstack gap-3"></div>
+</div>
+
+<script>
+    const examId = new URLSearchParams(location.search).get('examId');
+
+    async function getJSON(url){
+      const h = { 'Accept':'application/json' };
+      const t = localStorage.getItem('token');
+      if (t) h['Authorization'] = 'Bearer ' + t;
+      const r = await fetch(url, { headers: h });
+      if (!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    }
+
+    function renderAttempt(a){
+      document.getElementById('examTitle').textContent =
+        `리마인드 — ${a.subclassName ?? ''}`;
+      document.getElementById('meta').textContent =
+        `${a.csatDate ? `회차 ${a.csatDate}` : ''}`;
+
+      const wrap = document.getElementById('qwrap');
+      wrap.innerHTML = '';
+
+      a.questions.forEach(q=>{
+        const card = document.createElement('div');
+        card.className = 'card p-3';
+
+        const h = document.createElement('div');
+        h.className = 'mb-2 fw-semibold';
+        h.textContent = `Q${q.number}. ${q.content ?? ''}`;
+        card.appendChild(h);
+
+        const omr = document.createElement('div');
+        omr.className = 'omr d-flex flex-wrap gap-2';
+
+        q.choices.forEach(c=>{
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-outline-secondary';
+          btn.textContent = c.label;
+
+          const selected = q.selectedChoiceId === c.choiceId;
+          const correct  = q.correctChoiceId  === c.choiceId;
+
+          if (selected && correct) {
+            btn.classList.replace('btn-outline-secondary', 'btn-success');   // ✅ 정답+선택 : 초록
+          } else if (selected && !correct) {
+            btn.classList.replace('btn-outline-secondary', 'btn-danger');    // ✅ 오답+선택 : 빨강
+          } else if (!selected && correct) {
+            // 정답 강조도 원하면 아래 라인 주석 해제
+            // btn.classList.replace('btn-outline-secondary', 'btn-outline-success');
+          }
+
+          omr.appendChild(btn);
+        });
+
+        card.appendChild(omr);
+        wrap.appendChild(card);
+      });
+    }
+
+    (async ()=>{
+      if (!examId) { alert('잘못된 접근입니다.'); return; }
+      try {
+        const a = await getJSON(`/api/review/attempt/${examId}`);
+        if (!a.questions || a.questions.length === 0) {
+          alert('해당 시도의 복기 데이터를 찾을 수 없습니다.');
+          return;
+        }
+        renderAttempt(a);
+      } catch (e) {
+        console.error(e);
+        alert('복기 데이터를 불러오지 못했습니다.');
+      }
+    })();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
