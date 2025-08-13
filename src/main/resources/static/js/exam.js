@@ -15,10 +15,23 @@
   const $  = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => root.querySelectorAll(sel);
 
+  // 텍스트만 필요할 때 사용
   function plainText(html) {
     const tmp = document.createElement('div');
     tmp.innerHTML = html ?? '';
     return (tmp.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  // ✅ 선택지에 들어오는 HTML을 그대로 렌더 (최소 샌드박싱)
+  //  - <script> 제거
+  //  - on* 인라인 이벤트 제거 (onclick 등)
+  function sanitizeChoiceHTML(html) {
+    let s = String(html ?? '');
+    // remove <script>...</script>
+    s = s.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+    // remove on*="..." and on*='...' and on*=unquoted
+    s = s.replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+    return s;
   }
 
   // ── 숨겨진 저장소 초기화/접근 ─────────────────────────────────────────
@@ -102,22 +115,29 @@
       const titleText = plainText(q.questionTitle);
       const saved = getHiddenAnswer(globalIndex); // ✅ 저장된 값 복원
 
+      // ✅ 선택지 HTML 그대로 삽입 (이미지 지원)
+      //    - 숫자 기호(①~⑤) + 원본 HTML
+      const choiceBlock = [1,2,3,4,5].map(n => {
+        const raw = q['option' + n];                       // 서버에서 온 원본 HTML/텍스트
+        const optHTML = sanitizeChoiceHTML(raw);           // 최소 정화
+        const checked = (String(saved) === String(n)) ? 'checked' : '';
+        const labelHTML = `${'①②③④⑤'[n-1]} <span class="choice-content">${optHTML || ''}</span>`; // ← 핵심
+
+        return `
+          <div>
+            <input type="radio" id="q${globalIndex}_${n}" name="visible_${globalIndex}"
+                  value="${n}" ${checked}
+                  onchange="syncOMR(${globalIndex}, ${n}); window.__setHidden?.(${globalIndex}, ${n});">
+            <label for="q${globalIndex}_${n}" class="choice-label">${labelHTML}</label>
+          </div>
+        `;
+      }).join('');
+
       box.innerHTML = `
         ${articleHtml}
         <p class="q-title">${globalIndex + 1}. ${titleText}</p>
         ${contextHtml}
-        ${[1,2,3,4,5].map(n => {
-          const optText = plainText(q['option' + n]);
-          const checked = (String(saved) === String(n)) ? 'checked' : '';
-          return `
-            <div>
-              <input type="radio" id="q${globalIndex}_${n}" name="visible_${globalIndex}"
-                     value="${n}" ${checked}
-                     onchange="syncOMR(${globalIndex}, ${n}); window.__setHidden?.(${globalIndex}, ${n});">
-              <label for="q${globalIndex}_${n}" class="choice-label">${'①②③④⑤'[n-1]} ${optText}</label>
-            </div>
-          `;
-        }).join('')}
+        ${choiceBlock}
       `;
       return box;
     };
