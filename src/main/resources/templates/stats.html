@@ -12,6 +12,12 @@
           background: linear-gradient(to right, rgba(155, 89, 182, 1), rgba(52, 152, 219, 1));
           color:#0f172a;
         }
+        body[data-mode="mine"] [data-role="admin-only"],
+        body[data-mode="mine"] #distCard {
+          display: none !important;
+        }
+        body[data-mode="one"] #adminSection { display: none !important; }
+
         .card {
           background: rgba(255,255,255,0.92);
           border: 1px solid rgba(255,255,255,0.45);
@@ -29,19 +35,31 @@
         label.form-label { font-weight:600; color:#0b1220; }
     </style>
 </head>
-<body data-user-id="[[${userId}]]">
+<body data-user-id="[[${userId}]]" data-mode="[[${mode}]]">
 <th:block th:replace="~{fragments/commonHeader :: header}"></th:block>
 
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="mb-0">시험 통계</h2>
-        <div class="muted small">사용자: <span id="userLabel">[[${username}]]</span></div>
+<!--        <div class="muted small">사용자: <span id="userLabel">[[${username}]]</span></div>-->
     </div>
 
     <!-- Filters -->
+    <!-- 사용자 선택 (MODE===one 일 때만 보임) -->
+    <div id="userSelectorRow" class="row g-3 align-items-end justify-content-center mb-2" style="display:none;">
+    <div class="col-12 col-lg-4 mx-auto">  <!-- ✅ 한 칸일 땐 mx-auto로 중앙 -->
+            <label class="form-label">사용자</label>
+            <select id="userSelect" class="form-select">
+                <option value="">사용자 선택</option>
+            </select>
+        </div>
+    </div>
+
+
     <div class="card mb-4">
         <div class="card-body">
-            <div class="row g-3 align-items-end">
+            <div id="filterRow"
+                 class="row g-3 align-items-end justify-content-center">
                 <div class="col-12 col-lg-3">
                     <label class="form-label">과목(Subject)</label>
                     <select id="subjectId" class="form-select">
@@ -60,16 +78,9 @@
                         <option value="">회차 선택</option>
                     </select>
                 </div>
-                <div class="col-12 col-lg-3">
-                    <label class="form-label">트렌드 그룹</label>
-                    <select id="groupBy" class="form-select">
-                        <option value="CSAT">회차별(CSAT)</option>
-                        <option value="SUBJECT">과목별(SUBJECT)</option>
-                    </select>
-                </div>
             </div>
 
-            <div class="d-flex justify-content-end align-items-center mt-3 gap-2">
+            <div class="d-flex justify-content-center align-items-center mt-3 gap-2">
                 <button id="btnReview" class="btn btn-outline-dark">리마인드 보기</button>
                 <button id="refreshAll" class="btn btn-primary">검색</button>
             </div>
@@ -78,7 +89,7 @@
     </div>
 
     <!-- KPI cards -->
-    <div class="row g-3 mb-4">
+    <div class="row g-3 mb-4 justify-content-center" id="kpiRow">
         <div class="col-6 col-lg-3" data-role="admin-only">
             <div class="card p-3 h-100">
                 <div class="muted">응시자 수</div>
@@ -97,17 +108,17 @@
 
         <div class="col-6 col-lg-3">
             <div class="card p-3 h-100">
-                <div class="muted">중앙값 / P90</div>
-                <div class="kpi"><span id="kpiMedian">-</span> / <span id="kpiP90">-</span></div>
+                <div class="muted">평균 점수</div>
+                <div class="kpi"><span id="kpiAvg">-</span></div>
                 <div class="muted small">점수 기준</div>
             </div>
         </div>
 
         <div class="col-6 col-lg-3">
             <div class="card p-3 h-100">
-                <div class="muted">1등급 컷</div>
+                <div class="muted">등급</div>
                 <div id="kpiCut1" class="kpi">-</div>
-                <div class="muted small">subclass_csat_date 기반</div>
+                <div class="muted small">가장 최근에 응시한 시험 기준</div>
             </div>
         </div>
     </div>
@@ -115,10 +126,10 @@
     <div class="divider"></div>
 
     <!-- Trend chart -->
-    <div class="card mb-4">
+    <div class="card mb-4" id="trendCard">
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <h5 class="mb-0">내 백분위 추이</h5>
+                <h5 id="trendTitle" class="mb-0">내 점수 추이</h5>
                 <span id="trendInfo" class="muted small"></span>
             </div>
             <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
@@ -126,13 +137,25 @@
     </div>
 
     <!-- Distribution chart -->
-    <div class="card mb-4">
+    <div class="card mb-4" id="distCard" data-role="admin-only">
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <h5 class="mb-0">점수 분포(집단 대비 내 위치)</h5>
+                <h5 class="mb-0">점수 분포</h5>
                 <span id="distInfo" class="muted small"></span>
             </div>
             <div class="chart-wrap"><canvas id="distChart"></canvas></div>
+
+            <div class="divider my-3" id="gradeDivider" style="display:none;"></div>
+
+            <div id="gradeBlock" style="display:none;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">등급 분포(컷 기준)</h6>
+                    <span id="gradeInfo" class="muted small"></span>
+                </div>
+                <div class="chart-wrap" style="height:280px">
+                    <canvas id="gradeChart"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -141,7 +164,6 @@
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h5 class="mb-0">관리자 지표 — 재응시율</h5>
-                <button id="loadAdmin" class="btn btn-sm btn-outline-secondary">로드</button>
             </div>
             <div class="row g-3">
                 <div class="col-6 col-lg-3">
@@ -170,7 +192,7 @@
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">리마인드 — 내 응시 목록</h5>
+                <h5 class="modal-title" id="attemptsModalTitle">리마인드 — 내 응시 목록</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -186,304 +208,7 @@
         </div>
     </div>
 </div>
-
-<script>
-    const API_CSAT_DATES_GLOBAL = '/api/lookup/csat-dates-global'; // 있으면 사용
-    const SCOPE = { ALL:'ALL', SUBJECT:'SUBJECT', SUBCLASS:'SUBCLASS' };
-    const $ = (sel) => document.querySelector(sel);
-
-    // token helpers
-    function getUserId() {
-      const bodyId = document.body.getAttribute('data-user-id');
-      if (bodyId && bodyId !== '0' && !bodyId.startsWith('[[')) return bodyId;
-      const t = localStorage.getItem('token');
-      if (!t) return null;
-      try { const p = JSON.parse(atob(t.split('.')[1])); return p.userId || p.id || p.sub || null; }
-      catch { return null; }
-    }
-    function setUserLabelFromToken() {
-      const t = localStorage.getItem('token');
-      if (!t) return;
-      try {
-        const p = JSON.parse(atob(t.split('.')[1]));
-        const name = p.username || p.name || p.nickname || p.sub || '';
-        if (name) document.getElementById('userLabel').textContent = name;
-      } catch {}
-    }
-    function getRoleFromToken() {
-      const t = localStorage.getItem('token'); if(!t) return null;
-      try {
-        const p = JSON.parse(atob(t.split('.')[1]));
-        return p.role || p.auth || (Array.isArray(p.authorities) ? p.authorities[0] : null) || null;
-      } catch { return null; }
-    }
-    function applyRoleGate() {
-      const role = getRoleFromToken();
-      const isAdmin = role === 'ADMIN' || role === 'ROLE_ADMIN';
-      document.querySelectorAll('[data-role="admin-only"]').forEach(el => el.style.display = isAdmin ? '' : 'none');
-      const btn = document.getElementById('loadAdmin'); if (btn && !isAdmin) btn.disabled = true;
-    }
-
-    async function getJSON(url) {
-      const headers = { 'Accept': 'application/json' };
-      const t = localStorage.getItem('token');
-      if (t) headers['Authorization'] = 'Bearer ' + t;
-      const res = await fetch(url, { headers });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    }
-
-    // Endpoints
-    const API_SUBJECTS   = '/api/lookup/subjects';
-    const API_SUBCLASSES = (sid)  => `/api/lookup/subclasses?subjectId=${sid}`;
-    const API_CSAT_DATES = (scid) => `/api/lookup/csat-dates?subclassId=${scid}`;
-
-    const API_TREND  = (uid, g)       => `/api/stats/user/${uid}/percentile-trend?groupBy=${g}`;
-    const API_DIST   = (cd, sc, uid)  => `/api/stats/exam/score-distribution?csatDate=${encodeURIComponent(cd)}&subclassId=${sc}&bin=5${uid?`&userId=${uid}`:''}`;
-    const API_KPIS   = (cd, sc)       => `/api/stats/exam/kpis?csatDate=${encodeURIComponent(cd)}&subclassId=${sc}`;
-    const API_RETAKE = (cd)           => `/api/stats/admin/retake-rate?csatDate=${encodeURIComponent(cd)}`;
-
-    // Charts
-    let trendChart, distChart, trendCtx, distCtx;
-    const MyScoreMarker = {
-      id:'myScoreMarker',
-      afterDatasetsDraw(chart, args, opt){
-        if(opt.myX==null) return;
-        const {ctx, chartArea} = chart;
-        ctx.save(); ctx.beginPath();
-        ctx.moveTo(opt.myX, chartArea.top);
-        ctx.lineTo(opt.myX, chartArea.bottom);
-        ctx.lineWidth=2; ctx.setLineDash([6,4]);
-        ctx.strokeStyle='#2563eb'; ctx.stroke(); ctx.restore();
-      }
-    };
-    Chart.register(MyScoreMarker);
-
-    function createTrendChart(labels, data) {
-      if (!trendCtx) return;
-      if (trendChart) trendChart.destroy();
-      trendChart = new Chart(trendCtx, {
-        type: 'line',
-        data: { labels, datasets: [{ label: '백분위(%)', data, tension: 0.25, fill: false, pointRadius: 3 }] },
-        options: { responsive:true, maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, max:100 } } }
-      });
-    }
-    function createDistChart(labels, counts, myScoreX) {
-      if (!distCtx) return;
-      if (distChart) distChart.destroy();
-      distChart = new Chart(distCtx, {
-        type: 'bar', data: { labels, datasets: [{ label: '인원수', data: counts }] },
-        options: { responsive:true, maintainAspectRatio:false, plugins:{ myScoreMarker:{ myX: myScoreX } } }
-      });
-    }
-
-    // Lookups
-    async function loadSubjects() {
-      const list = await getJSON(API_SUBJECTS);
-      const sel = document.getElementById('subjectId');
-      // 전체 과목(글로벌 회차) 옵션은 서버에 /api/lookup/csat-dates-global 가 있을 때만 의미 있음
-      sel.innerHTML =
-        '<option value="*">전체 과목</option>' +
-        '<option value="">과목 선택</option>' +
-        list.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
-    }
-    async function loadCsatDatesGlobal() {
-      // 서버에 엔드포인트 없으면(404) 그냥 무시
-      try {
-        const list = await getJSON(API_CSAT_DATES_GLOBAL);
-        const sel = document.getElementById('csatDate');
-        sel.innerHTML = '<option value="">회차 선택</option>' + list.map(v=>`<option value="${v}">${v}</option>`).join('');
-        sel.disabled = false;
-        if (list.length) sel.value = list[list.length-1];
-      } catch { /* 엔드포인트 없으면 건너뜀 */ }
-    }
-    async function loadSubclasses(subjectId) {
-      const list = await getJSON(API_SUBCLASSES(subjectId));
-      const sel = document.getElementById('subclassId');
-      sel.innerHTML = '<option value="">세부과목 선택</option>' + list.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
-      sel.disabled = false;
-      const cd = document.getElementById('csatDate');
-      cd.innerHTML = '<option value="">회차 선택</option>';
-      cd.disabled = true;
-    }
-    async function loadCsatDates(subclassId) {
-      const list = await getJSON(API_CSAT_DATES(subclassId));
-      const sel = document.getElementById('csatDate');
-      sel.innerHTML = '<option value="">회차 선택</option>' + list.map(v=>`<option value="${v}">${v}</option>`).join('');
-      sel.disabled = false;
-      if (list.length) sel.value = list[list.length-1];
-    }
-
-    // KPI / Trend / Dist
-    function applyKpis(k){
-      $('#kpiParticipants').textContent = k.participants ?? '-';
-      $('#kpiAttempts').textContent    = k.attempts ?? '-';
-      $('#kpiMedian').textContent      = k.median ?? '-';
-      $('#kpiP90').textContent         = k.p90 ?? '-';
-      $('#kpiCut1').textContent        = k.grade1Cut ?? '-';
-    }
-    function applyDistribution(d){
-      const labels = d.bins.map(b => `${b.start}-${b.end}`);
-      const counts = d.bins.map(b => b.count);
-      $('#distInfo').textContent = `cohort: ${d.cohort}${d.myPercentile!=null?` · 내 백분위 ${d.myPercentile}%`:''}`;
-      createDistChart(labels, counts, null);
-      if (d.myScore != null) setTimeout(()=>{
-        const mids = d.bins.map(b => (b.start + b.end)/2);
-        const idx = mids.reduce((best, v, i) => Math.abs(v - d.myScore) < Math.abs(mids[best]-d.myScore) ? i : best, 0);
-        const x = distChart.scales.x.getPixelForValue(idx);
-        distChart.options.plugins.myScoreMarker.myX = x;
-        distChart.update();
-      }, 0);
-    }
-
-    // Review: 목록 띄우기 (개선판)
-async function openAttemptsModal() {
-  const $ = (s) => document.querySelector(s);
-
-  try {
-    const userId = getUserId();
-    if (!userId) return alert('로그인이 필요합니다.');
-
-    const csatDate   = $('#csatDate').value || '';
-    const subjectRaw = $('#subjectId').value || '';
-    const subclRaw   = $('#subclassId').value || '';
-
-    // 숫자만 통과시키기
-    const toNum = (v) => {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : null;
-    };
-
-    const subclassId = toNum(subclRaw);
-    const subjectId  = subclassId ? null : (subjectRaw === '*' ? null : toNum(subjectRaw));
-
-    // 쿼리스트링 구성
-    const qs = new URLSearchParams();
-    qs.set('userId', userId);
-    if (csatDate)  qs.set('csatDate', csatDate);
-    if (subjectId != null)  qs.set('subjectId', subjectId);
-    if (subclassId != null) qs.set('subclassId', subclassId);
-
-    // 로딩 표시
-    const tb = document.getElementById('attemptTbody');
-    tb.innerHTML = '<tr><td colspan="5" class="text-center text-muted">불러오는 중…</td></tr>';
-
-    const rows = await getJSON(`/api/review/attempts?${qs.toString()}`);
-
-    // 렌더링
-    tb.innerHTML = '';
-    if (!rows || rows.length === 0) {
-      tb.innerHTML = '<tr><td colspan="5" class="text-center text-muted">해당 조건의 응시가 없습니다.</td></tr>';
-    } else {
-      rows.forEach((r) => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${r.testDate ?? ''}</td>
-          <td>${r.csatDate ?? ''}</td>
-          <td>${r.subclassName ?? ''}</td>
-          <td class="text-end">${r.score ?? '-'}</td>
-          <td class="text-end">
-            <a class="btn btn-sm btn-outline-primary" href="/review?examId=${r.examId}">복기</a>
-          </td>`;
-        tb.appendChild(tr);
-      });
-    }
-
-    // 모달 열기
-    const modal = new bootstrap.Modal(document.getElementById('attemptsModal'));
-    modal.show();
-
-  } catch (e) {
-    console.error(e);
-    alert('리마인드 목록을 불러오는 중 오류가 발생했습니다. (서버 응답 확인 필요)');
-  }
-}
-
-
-    // Boot
-    document.addEventListener('DOMContentLoaded', async () => {
-      try {
-        setUserLabelFromToken();
-        applyRoleGate();
-        trendCtx = document.getElementById('trendChart')?.getContext('2d');
-        distCtx  = document.getElementById('distChart')?.getContext('2d');
-
-        // filter chain
-        document.getElementById('subjectId').addEventListener('change', async (e)=>{
-          const v = e.target.value;
-          if (v === '*') {
-            const sc = document.getElementById('subclassId');
-            sc.value = ''; sc.disabled = true;
-            await loadCsatDatesGlobal();
-            return;
-          }
-          if (!v) { document.getElementById('subclassId').disabled = true; return; }
-          await loadSubclasses(v);
-        });
-        document.getElementById('subclassId').addEventListener('change', async (e)=>{
-          const v = e.target.value;
-          if (!v) { document.getElementById('csatDate').disabled = true; return; }
-          await loadCsatDates(v);
-        });
-
-        document.getElementById('refreshAll').addEventListener('click', async ()=>{
-          const userId    = getUserId();
-          const subjectId = document.getElementById('subjectId').value;
-          const subclassId= document.getElementById('subclassId').value;
-          const csatDate  = document.getElementById('csatDate').value;
-          const groupBy   = document.getElementById('groupBy').value;
-          if (!userId) return alert('로그인 정보가 필요합니다.');
-          if (!csatDate) return alert('회차를 선택하세요.');
-
-          let kpisUrl, distUrl;
-          if (subjectId === '*' && !subclassId) {
-            kpisUrl = `/api/stats/exam/kpis?csatDate=${encodeURIComponent(csatDate)}&scope=${SCOPE.ALL}`;
-            distUrl = `/api/stats/exam/score-distribution?csatDate=${encodeURIComponent(csatDate)}&scope=${SCOPE.ALL}&bin=5`;
-          } else if (!subclassId && subjectId) {
-            kpisUrl = `/api/stats/exam/kpis?csatDate=${encodeURIComponent(csatDate)}&subjectId=${subjectId}&scope=${SCOPE.SUBJECT}`;
-            distUrl = `/api/stats/exam/score-distribution?csatDate=${encodeURIComponent(csatDate)}&subjectId=${subjectId}&scope=${SCOPE.SUBJECT}&bin=5`;
-          } else {
-            kpisUrl = `/api/stats/exam/kpis?csatDate=${encodeURIComponent(csatDate)}&subclassId=${subclassId}&scope=${SCOPE.SUBCLASS}`;
-            distUrl = `/api/stats/exam/score-distribution?csatDate=${encodeURIComponent(csatDate)}&subclassId=${subclassId}&scope=${SCOPE.SUBCLASS}&bin=5&userId=${userId}`;
-          }
-
-          const [k, d, t] = await Promise.all([
-            getJSON(kpisUrl),
-            getJSON(distUrl),
-            getJSON(API_TREND(userId, groupBy))
-          ]);
-
-          applyKpis(k);
-          applyDistribution(d);
-
-          const tLabels = t.map(it => it.csatDate ?? `SUB:${it.subclassId}`);
-          const tData   = t.map(it => it.percentile ?? 0);
-          document.getElementById('trendInfo').textContent = `${groupBy} / ${t.length} 포인트`;
-          createTrendChart(tLabels, tData);
-        });
-
-        document.getElementById('loadAdmin').addEventListener('click', async ()=>{
-          const csatDate = document.getElementById('csatDate').value;
-          if (!csatDate) return alert('회차를 선택하세요.');
-          const a = await getJSON(API_RETAKE(csatDate));
-          document.getElementById('adminRetakeRate').textContent = `${(a.retakeRate*100).toFixed(1)}%`;
-          document.getElementById('adminParticipants').textContent = a.participants ?? '-';
-          document.getElementById('adminReusers').textContent = a.reattemptUsers ?? '-';
-          document.getElementById('adminAvgAttempts').textContent = (a.avgAttemptsPerUser ?? 0).toFixed(2);
-        });
-
-        document.getElementById('btnReview').addEventListener('click', openAttemptsModal);
-
-        await loadSubjects();
-        document.getElementById('subjectId').value = '*';
-        await loadCsatDatesGlobal();  // 없으면 그냥 skip
-        // 자동 검색은 글로벌 회차가 채워졌을 때만
-        if (document.getElementById('csatDate').value) {
-          document.getElementById('refreshAll').click();
-        }
-      } catch(e) { console.error('init error:', e); }
-    });
-</script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/stats.js"></script>
 </body>
 </html>

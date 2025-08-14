@@ -181,4 +181,30 @@ public interface StatsRepository extends JpaRepository<Exam, Long> {
                                   @Param("csatDate") String csatDate,
                                   @Param("subjectId") Long subjectId,
                                   @Param("subclassId") Long subclassId);
+
+    @Query(value = """
+    SELECT e.id AS exam_id,
+           e.subclass_id,
+           e.csat_date,
+           e.test_date,
+           CASE WHEN cnt > 1 THEN ROUND(100 - ((rk - 1) * 100.0 / (cnt - 1))) ELSE 100 END AS percentile
+    FROM (
+      SELECT e.*,
+             RANK()  OVER (PARTITION BY e.csat_date, e.subclass_id ORDER BY e.result ASC) AS rk,
+             COUNT(*) OVER (PARTITION BY e.csat_date, e.subclass_id) AS cnt
+      FROM exam e
+      /* subject 필터용 조인 (exam에 subject_id 없을 때) */
+      LEFT JOIN subclass sc ON sc.id = e.subclass_id
+    ) e
+    WHERE e.user_id = :uid
+      AND (:subjectId  IS NULL OR sc.subject_id  = :subjectId)
+      AND (:subclassId IS NULL OR e.subclass_id  = :subclassId)
+      AND (:csatDate   IS NULL OR e.csat_date    = :csatDate)
+    ORDER BY e.test_date ASC
+  """, nativeQuery = true)
+    List<Object[]> attemptTrend(@Param("uid") Long uid,
+                                @Param("subjectId") Long subjectId,
+                                @Param("subclassId") Long subclassId,
+                                @Param("csatDate") String csatDate);
 }
+

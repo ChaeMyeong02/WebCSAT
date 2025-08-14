@@ -11,6 +11,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.core.userdetails.UserDetails;
+import java.util.Optional;
+
 /* Service about UserManagementSystem */
 @RequiredArgsConstructor
 @Service
@@ -96,5 +102,44 @@ public class UserService {
 
         user.setRole(role);
         userRepository.save(user);
+    }
+
+    public Optional<Long> getUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return Optional.empty();
+
+        // 1) JWT (Spring Security Resource Server 방식)
+        if (auth instanceof JwtAuthenticationToken jwtAuth) {
+            var jwt = jwtAuth.getToken();
+            Object uid = jwt.getClaim("userId");
+            if (uid == null) uid = jwt.getClaim("id");
+            if (uid != null) {
+                try { return Optional.of(Long.valueOf(uid.toString())); } catch (Exception ignored) {}
+            }
+            // sub에 이메일이 들어오는 경우
+            String email = jwt.getClaimAsString("sub");
+            if (email != null) return userRepository.findByEmail(email).map(User::getUserId);
+        }
+
+        // 2) 세션/폼로그인
+        Object p = auth.getPrincipal();
+        if (p instanceof UserDetails ud) {
+            return userRepository.findByEmail(ud.getUsername()).map(User::getUserId);
+        }
+        if (p instanceof String s) {
+            return userRepository.findByEmail(s).map(User::getUserId);
+        }
+        return Optional.empty();
+    }
+    // 클래스 마지막에 아래 메서드 추가
+    public Optional<Long> getCurrentUserId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) return Optional.empty();
+        String email = auth.getName(); // username = email 가정
+        try {
+            return Optional.of(findByEmail(email).getUserId());
+        } catch (Exception e) {
+            return Optional.empty();
+        }
     }
 }

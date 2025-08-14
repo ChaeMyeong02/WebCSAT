@@ -1,108 +1,134 @@
 <header th:fragment="header">
-  <nav class="navbar navbar-expand-lg gradient-custom-dark">
-    <div class="container-fluid">
-      <a class="navbar-brand text-white" href="/"><img th:src="@{/img/logo.png}" alt="logo" class="logo-img"></a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarSupportedContent">
-        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-          <li class="nav-item">
-            <a class="nav-link active text-white" aria-current="page" href="/">홈</a>
-          </li>
-          <li class="nav-item">
-            <a id="loginLink" class="nav-link text-white" href="/login">로그인</a>
-            <a id="logoutLink" class="nav-link text-white" href="/logout" style="display: none;">로그아웃</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link text-white" href="/selectType">시험치기</a>
-          </li>
-          <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle text-white" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              마이페이지
-            </a>
-            <ul class="dropdown-menu">
-              <li><a class="dropdown-item" href="myPage">내정보</a></li>
-              <li><a class="dropdown-item" href="/stats">내시험보기</a></li>
-            </ul>
-          </li>
-          <li id="adminQuestionMenu" class="nav-item dropdown" style="display: none;">
-            <a class="nav-link dropdown-toggle text-white" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              문제관리
-            </a>
-            <ul class="dropdown-menu">
-              <li><a class="dropdown-item" href="/admin/question/add">문제추가</a></li>
-              <li><a class="dropdown-item" href="/admin/question/list">문제목록/수정</a></li>
-            </ul>
-          </li>
-          <li id="userManageMenu" class="nav-item" style="display: none;">
-            <a class="nav-link text-white" href="/admin/userRole">유저 권한 관리</a>
-          </li>
-          <li id="subjectManageMenu" class="nav-item" style="display: none;">
-            <a class="nav-link text-white" href="/admin/subjectManage">시험 과목 관리</a>
-          </li>
-          <li id="examInfoMenu" class="nav-item dropdown" style="display: none;">
-            <a class="nav-link dropdown-toggle text-white" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              시험 정보 관리
-            </a>
-            <ul class="dropdown-menu">
-              <li><a class="dropdown-item" href="/admin/examInfo">시험 등급 관리</a></li>
-              <li><a class="dropdown-item" href="/admin/listeningExamInfo">듣기 과목 관리</a></li>
-            </ul>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </nav>
-  <script>
-    document.addEventListener("DOMContentLoaded", function() {
-      const accessToken = localStorage.getItem('token');
-      const loginLink = document.getElementById('loginLink');
-      const logoutLink = document.getElementById('logoutLink');
+    <nav class="navbar navbar-expand-lg gradient-custom-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand text-white" href="/"><img th:src="@{/img/logo.png}" alt="logo" class="logo-img"></a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent">
+                <span class="navbar-toggler-icon"></span>
+            </button>
 
-      if (accessToken) {
-        loginLink.style.display = 'none';
-        logoutLink.style.display = 'block';
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item"><a class="nav-link active text-white" href="/">홈</a></li>
 
-        // JWT Payload에서 role 추출
-        const payload = JSON.parse(atob(accessToken.split('.')[1]));
-        const userRole = payload.role || payload.auth || null; // 서버 발급 구조에 따라 'role' 또는 'auth' 키 확인
+                    <!-- 로그인/아웃 -->
+                    <li class="nav-item">
+                        <a id="loginLink" class="nav-link text-white" href="/login">로그인</a>
+                        <a id="logoutLink" class="nav-link text-white" href="/logout" style="display:none;">로그아웃</a>
+                    </li>
 
-        if (userRole === 'ADMIN') {
-          document.getElementById('adminQuestionMenu').style.display = 'block';
-          document.getElementById("userManageMenu").style.display = "block";
-          document.getElementById("subjectManageMenu").style.display = "block";
-          document.getElementById("examInfoMenu").style.display = "block";
-        }
+                    <!-- 시험치기 -->
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="/selectType">시험치기</a>
+                    </li>
 
-        if (window.location.search.includes('token=')) {
-          const newUrl = window.location.origin + window.location.pathname;
-          window.history.replaceState({}, document.title, newUrl);
-}
-      }
+                    <!-- 통계: 응시자=직링크 / 관리자=드롭다운 -->
+                    <li id="statsDirect" class="nav-item" style="display:none;">
+                        <a class="nav-link text-white" href="/stats">통계</a>
+                    </li>
+                    <li id="statsDropdown" class="nav-item dropdown" style="display:none;">
+                        <a class="nav-link dropdown-toggle text-white" role="button" data-bs-toggle="dropdown">통계</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/stats/admin">사용자통계(전체)</a></li>
+                            <li><a class="dropdown-item" href="/stats/user">사용자통계(한명)</a></li>
+                        </ul>
+                    </li>
 
-      logoutLink.addEventListener('click', function(event) {
-        event.preventDefault();
-        if (confirm("로그아웃하시겠습니까?")) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('refresh_token');
-          alert("로그아웃 되었습니다.");
-          window.location.href = '/';
-        }
-      });
-    });
-  </script>
-  <style>
-    .gradient-custom {
-        background: linear-gradient(to right, rgba(155, 89, 182, 1), rgba(52, 152, 219, 1));
-    }
-    .gradient-custom-dark {
-        background: linear-gradient(to right, rgba(123, 79, 179, 1), rgba(72, 149, 203, 1));
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-    }
-    .logo-img {
-      height: 36px;
-      object-fit: contain;
-    }
-  </style>
+                    <!-- 마이페이지: 모두 /myPage 직링크 -->
+                    <li id="myPageDirect" class="nav-item" style="display:none;">
+                        <a class="nav-link text-white" href="/myPage">마이페이지</a>
+                    </li>
+
+                    <!-- 관리자 메뉴들 -->
+                    <li id="adminQuestionMenu" class="nav-item dropdown" style="display:none;">
+                        <a class="nav-link dropdown-toggle text-white" role="button" data-bs-toggle="dropdown">문제관리</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/admin/question/add">문제추가</a></li>
+                            <li><a class="dropdown-item" href="/admin/question/list">문제목록/수정</a></li>
+                        </ul>
+                    </li>
+                    <li id="userManageMenu" class="nav-item" style="display:none;"><a class="nav-link text-white" href="/admin/userRole">유저 권한 관리</a></li>
+                    <li id="subjectManageMenu" class="nav-item" style="display:none;"><a class="nav-link text-white" href="/admin/subjectManage">시험 과목 관리</a></li>
+                    <li id="examInfoMenu" class="nav-item dropdown" style="display:none;">
+                        <a class="nav-link dropdown-toggle text-white" role="button" data-bs-toggle="dropdown">시험 정보 관리</a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="/admin/examInfo">시험 등급 관리</a></li>
+                            <li><a class="dropdown-item" href="/admin/listeningExamInfo">듣기 과목 관리</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+          const $ = (id) => document.getElementById(id);
+          const show = (el) => { if (el) el.style.display = 'block'; };
+          const hide = (el) => { if (el) el.style.display = 'none'; };
+
+          const accessToken = localStorage.getItem('token');
+          const loginLink = $('loginLink');
+          const logoutLink = $('logoutLink');
+
+          const statsDirect   = $('statsDirect');
+          const statsDropdown = $('statsDropdown');
+          const myPageDirect  = $('myPageDirect');
+
+          const adminMenus = ['adminQuestionMenu','userManageMenu','subjectManageMenu','examInfoMenu'].map($);
+
+          if (accessToken) {
+            hide(loginLink); show(logoutLink);
+
+            // 역할 파싱(안전)
+            let isAdmin = false;
+            try {
+              const p = JSON.parse(atob(accessToken.split('.')[1] || ''));
+              let role = p.role || p.auth || (Array.isArray(p.authorities) ? p.authorities[0] : null) || '';
+              if (Array.isArray(p.authorities) && p.authorities.includes('ROLE_ADMIN')) role = 'ADMIN';
+              if (String(role).startsWith('ROLE_')) role = String(role).replace(/^ROLE_/, '');
+              isAdmin = (role === 'ADMIN');
+            } catch (_) {}
+
+            // 통계 메뉴: 응시자=직링크 / 관리자=드롭다운
+            if (isAdmin) { show(statsDropdown); hide(statsDirect); }
+            else         { show(statsDirect);   hide(statsDropdown); }
+
+            // 마이페이지: 모두 직링크 노출
+            show(myPageDirect);
+
+            // 관리자 전용 메뉴들
+            adminMenus.forEach(el => isAdmin ? show(el) : hide(el));
+
+            // /?token= 정리
+            if (window.location.search.includes('token=')) {
+              const newUrl = window.location.origin + window.location.pathname;
+              window.history.replaceState({}, document.title, newUrl);
+            }
+          } else {
+            // 비로그인: 통계/마이페이지 숨겨두거나 필요시 켜기
+            hide(logoutLink); show(loginLink);
+            hide(statsDropdown); hide(statsDirect);
+            hide(myPageDirect);
+          }
+
+          // 로그아웃
+          if (logoutLink) {
+            logoutLink.addEventListener('click', function(e) {
+              e.preventDefault();
+              if (confirm("로그아웃하시겠습니까?")) {
+                localStorage.removeItem('token');
+                localStorage.removeItem('refresh_token');
+                alert("로그아웃 되었습니다.");
+                window.location.href = '/';
+              }
+            });
+          }
+        });
+    </script>
+
+    <style>
+        .gradient-custom{background:linear-gradient(to right,#9b59b6,#3498db)}
+        .gradient-custom-dark{background:linear-gradient(to right,#7b4fb3,#4895cb);box-shadow:0 4px 10px rgba(0,0,0,.2)}
+        .logo-img{height:36px;object-fit:contain}
+    </style>
 </header>

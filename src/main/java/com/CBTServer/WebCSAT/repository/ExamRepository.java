@@ -3,6 +3,8 @@ package com.CBTServer.WebCSAT.repository;
 import com.CBTServer.WebCSAT.domain.Exam;
 import com.CBTServer.WebCSAT.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,7 +26,20 @@ public interface ExamRepository extends JpaRepository<Exam, Long> {
     List<Exam> findByUser_UserIdAndSubclass_SubclassId(Long userId, Long subclassId);
 
     // 단건 조회
-    Optional<Exam> findByExamId(Long examId);
+    // (A) examId만으로 찾기
+    @Query("select e from Exam e join fetch e.subclass sc join fetch e.user u " +
+            "where e.examId = :examId")
+    Optional<Exam> findByExamId(@Param("examId") Long examId);
+
+    // (B) 소유자 검증까지 함께 (user.userId 필드명 사용!)
+    @Query("select e from Exam e join fetch e.subclass sc join fetch e.user u " +
+            "where e.examId = :examId and u.userId = :userId")
+    Optional<Exam> findOwnedExam(@Param("examId") Long examId,
+                                 @Param("userId") Long userId);
+
+
+    Optional<Exam> findByExamIdAndUser_UserId(Long examId, Long userId);
+
 
     // 시험 기록 삭제
     void deleteByExamId(Long examId);

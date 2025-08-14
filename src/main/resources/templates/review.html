@@ -1,98 +1,112 @@
 <!DOCTYPE html>
 <html lang="ko" xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta charset="UTF-8" />
-    <title>리마인드</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>리마인드 — 풀이 보기</title>
     <style>
-        .omr .btn { pointer-events: none; } /* 클릭 막기 */
+        html, body { height:100%; margin:0; font-family:system-ui, -apple-system, Arial, sans-serif; }
+
+        .exam-header{
+          background: linear-gradient(to right, #9b59b6, #3498db);
+          color:#fff; padding:16px; text-align:center;
+          position:sticky; top:0; z-index:5;
+        }
+        .header-top{
+          display:flex; justify-content:space-between; align-items:center; gap:8px;
+          max-width:1200px; margin:0 auto;
+        }
+        .header-top a{ color:#fff; text-decoration:none; border:1px solid rgba(255,255,255,.8);
+          padding:6px 10px; border-radius:8px; background:rgba(255,255,255,.08);
+        }
+        .header-titles{ flex:1; text-align:center; }
+        .header-titles h2{ margin:0 0 6px; font-size:20px; font-weight:800; }
+        .header-titles .meta{ opacity:.95; font-size:13px; }
+
+        .exam-layout{ display:flex; min-height:calc(100vh - 120px); }
+
+        .question-section{
+          flex:3; display:flex; gap:16px; padding:16px; overflow-y:auto;
+          max-height:calc(100vh - 120px); border-right:1px solid #e5e7eb;
+          align-items:flex-start;
+        }
+        .question-col{ flex:1 1 0; display:flex; flex-direction:column; gap:16px; min-width:0; }
+
+        .question-box{ border:1px solid #e5e7eb; border-radius:8px; padding:12px; background:#fff; }
+        .q-title{ margin:0 0 8px; line-height:1.4; font-weight:600; }
+        .article-box{ background:#f8fafc; border-left:4px solid #3b82f6; padding:10px; border-radius:6px; margin-bottom:8px; }
+        .question-box img{ max-width:100%; height:auto; display:block; }
+        .choices .choice{ border:1px solid #e5e7eb; border-radius:8px; padding:8px 10px; margin-bottom:8px; display:flex; gap:8px; align-items:flex-start; }
+        .choices .letter{ width:22px; text-align:center; font-weight:700; opacity:.9; }
+        .choices .content{ flex:1; }
+
+        /* 읽기 전용 & 정답/오답 표시 */
+        .readonly{ pointer-events:none; cursor:default; }
+        .choice.correct { border-color:#22c55e; background:#ecfdf5; }
+        .choice.wrong   { border-color:#ef4444; background:#fef2f2; }
+        .badge{ padding:2px 8px; border-radius:9999px; font-size:12px; font-weight:700; }
+        .badge.ok{ background:#16a34a; color:#fff; }
+        .badge.no{ background:#ef4444; color:#fff; }
+        .badge.na{ background:#64748b; color:#fff; }
+
+        /* OMR */
+        .omr-section{ flex:1; background:#f9fafb; padding:16px; overflow-y:auto; max-height:calc(100vh - 120px); }
+        .omr-section h4{ margin:0 0 12px; }
+        .omr-line{ margin-bottom:6px; font-size:14px; display:flex; align-items:center; gap:6px; }
+        .omr-q { cursor:pointer; font-weight:700; width:46px; }
+        .omr-btn{
+          border:1px solid #cbd5e1; background:#fff; border-radius:4px; padding:2px 6px; font-size:12px; cursor:pointer;
+        }
+        .omr-btn.sel     { background:#1f2937; color:#fff; border-color:#1f2937; }
+        .omr-btn.sel.ok  { background:#16a34a; border-color:#16a34a; }
+        .omr-btn.sel.bad { background:#ef4444; border-color:#ef4444; }
+
+        /* 하단 페이지 네비게이션(고정) */
+        .fixed-pagination{
+          position:fixed; left:0; bottom:0; width:100%; background:#fff;
+          box-shadow:0 -6px 20px rgba(0,0,0,.08); padding:10px 12px; z-index:4;
+          display:flex; flex-direction:column; align-items:center; gap:8px;
+        }
+        .fixed-pagination .pager{ display:flex; align-items:center; gap:10px; }
+        .fixed-pagination button{ padding:6px 12px; border-radius:8px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; }
+        .page-info{ font-weight:700; }
+
+        /* 마지막 요소가 하단바에 가려지지 않도록 여백 */
+        .question-section{ padding-bottom:90px; }
     </style>
 </head>
-<body>
-<th:block th:replace="~{fragments/commonHeader :: header}"></th:block>
-
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 id="examTitle" class="mb-0">리마인드</h3>
-        <div class="text-muted"><span id="meta"></span></div>
+<body data-exam-id="[[${examId}]]">
+<div class="exam-header">
+    <div class="header-top">
+        <a href="/stats">← 통계로 돌아가기</a>
+        <div class="header-titles">
+            <h2 id="hdrTitle">리마인드 — 풀이 보기</h2>
+            <div class="meta" id="hdrMeta">불러오는 중…</div>
+        </div>
+        <div style="width:100px;"></div>
     </div>
-
-    <div id="qwrap" class="vstack gap-3"></div>
 </div>
 
-<script>
-    const examId = new URLSearchParams(location.search).get('examId');
+<div class="exam-layout">
+    <div id="questionContainer" class="question-section">
+        <div id="colL" class="question-col"></div>
+        <div id="colR" class="question-col"></div>
+    </div>
 
-    async function getJSON(url){
-      const h = { 'Accept':'application/json' };
-      const t = localStorage.getItem('token');
-      if (t) h['Authorization'] = 'Bearer ' + t;
-      const r = await fetch(url, { headers: h });
-      if (!r.ok) throw new Error('HTTP '+r.status);
-      return r.json();
-    }
+    <div class="omr-section">
+        <h4>답안지</h4>
+        <div id="omrContainer"></div>
+    </div>
+</div>
 
-    function renderAttempt(a){
-      document.getElementById('examTitle').textContent =
-        `리마인드 — ${a.subclassName ?? ''}`;
-      document.getElementById('meta').textContent =
-        `${a.csatDate ? `회차 ${a.csatDate}` : ''}`;
+<div class="fixed-pagination">
+    <div class="pager">
+        <button type="button" id="btnPrev">이전</button>
+        <span class="page-info" id="pageInfo">1 / 1</span>
+        <button type="button" id="btnNext">다음</button>
+    </div>
+</div>
 
-      const wrap = document.getElementById('qwrap');
-      wrap.innerHTML = '';
-
-      a.questions.forEach(q=>{
-        const card = document.createElement('div');
-        card.className = 'card p-3';
-
-        const h = document.createElement('div');
-        h.className = 'mb-2 fw-semibold';
-        h.textContent = `Q${q.number}. ${q.content ?? ''}`;
-        card.appendChild(h);
-
-        const omr = document.createElement('div');
-        omr.className = 'omr d-flex flex-wrap gap-2';
-
-        q.choices.forEach(c=>{
-          const btn = document.createElement('button');
-          btn.className = 'btn btn-outline-secondary';
-          btn.textContent = c.label;
-
-          const selected = q.selectedChoiceId === c.choiceId;
-          const correct  = q.correctChoiceId  === c.choiceId;
-
-          if (selected && correct) {
-            btn.classList.replace('btn-outline-secondary', 'btn-success');   // ✅ 정답+선택 : 초록
-          } else if (selected && !correct) {
-            btn.classList.replace('btn-outline-secondary', 'btn-danger');    // ✅ 오답+선택 : 빨강
-          } else if (!selected && correct) {
-            // 정답 강조도 원하면 아래 라인 주석 해제
-            // btn.classList.replace('btn-outline-secondary', 'btn-outline-success');
-          }
-
-          omr.appendChild(btn);
-        });
-
-        card.appendChild(omr);
-        wrap.appendChild(card);
-      });
-    }
-
-    (async ()=>{
-      if (!examId) { alert('잘못된 접근입니다.'); return; }
-      try {
-        const a = await getJSON(`/api/review/attempt/${examId}`);
-        if (!a.questions || a.questions.length === 0) {
-          alert('해당 시도의 복기 데이터를 찾을 수 없습니다.');
-          return;
-        }
-        renderAttempt(a);
-      } catch (e) {
-        console.error(e);
-        alert('복기 데이터를 불러오지 못했습니다.');
-      }
-    })();
-</script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/review.js"></script>
 </body>
 </html>

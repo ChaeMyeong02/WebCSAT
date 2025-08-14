@@ -14,7 +14,7 @@ public interface ReviewRepository extends JpaRepository<Exam, Long> {
             e.exam_id        AS examId,
             e.test_date      AS testDate,
             e.csat_date      AS csatDate,
-            sc.name          AS subclassName,
+            sc.subclass_name AS subclassName,
             e.result         AS score
         FROM exam e
         JOIN subclass sc ON sc.subclass_id = e.subclass_id

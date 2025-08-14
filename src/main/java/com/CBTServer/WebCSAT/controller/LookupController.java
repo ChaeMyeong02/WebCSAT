@@ -1,7 +1,9 @@
 package com.CBTServer.WebCSAT.controller;
 
+import com.CBTServer.WebCSAT.repository.GradeCutRepository;
 import com.CBTServer.WebCSAT.repository.LookupRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,6 +19,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class LookupController {
     private final LookupRepository repo;
+    private final GradeCutRepository gradeCutRepository;
 
     @GetMapping("/subjects")
     public List<Map<String, Object>> subjects() {
@@ -52,4 +55,15 @@ public class LookupController {
     public List<String> csatDatesGlobal() {
         return repo.findAllCsatDates();
     }
+
+//    @GetMapping("/grade-cuts")
+//    public ResponseEntity<?> getGradeCuts(
+//            @RequestParam String csatDate,
+//            @RequestParam Long subclassId
+//    ){
+//        return gradeCutRepository.findCuts(csatDate, subclassId)
+//                .<ResponseEntity<?>>map(ResponseEntity::ok)
+//                .orElseGet(() -> ResponseEntity.notFound().build());
+//    }
+
 }
