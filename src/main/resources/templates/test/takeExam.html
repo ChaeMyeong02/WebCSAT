@@ -158,6 +158,14 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 </style>
+    <script th:inline="none">
+        window.MathJax = {
+          tex: { inlineMath: [ ['$', '$'], ['\\(', '\\)'] ],
+                 displayMath: [ ['$$','$$'], ['\\[','\\]'] ] },
+          svg: { fontCache: 'global' }
+        };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js" defer></script>
 </head>
 <body>
 

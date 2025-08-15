@@ -109,7 +109,7 @@
         ? `<div style="margin-top:0.5rem;"><img src="${q.questionContext}" alt=""></div>`
         : '';
 
-      const titleText = plainText(q.questionTitle);
+      const titleHtml = sanitizeChoiceHTML(q.questionTitle || '');
       const saved = getHiddenAnswer(globalIndex);
 
       const choiceBlock = [1,2,3,4,5].map(n => {
@@ -130,7 +130,7 @@
 
       box.innerHTML = `
         ${articleHtml}
-        <p class="q-title">${globalIndex + 1}. ${titleText}</p>
+        <div class="q-title">${globalIndex + 1}. ${titleHtml}</div>
         ${contextHtml}
         ${choiceBlock}
       `;
@@ -154,6 +154,10 @@
 
     const pageInfo = $('#pageInfo');
     if (pageInfo) pageInfo.textContent = `${currentPage} / ${totalPages}`;
+    typesetMath();   // ← 수식 다시 그리기
+  }
+  function typesetMath() {
+    if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
   }
 
   function renderOMR() {
