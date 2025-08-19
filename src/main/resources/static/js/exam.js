@@ -22,11 +22,23 @@
     return (tmp.textContent || '').replace(/\s+/g, ' ').trim();
   }
 
-  // ✅ 선택지 HTML을 안전하게 삽입(이미지 지원) — script/on* 제거
+  // ✅ 선택지/제목 HTML을 안전하게 + 앞쪽 줄바꿈 제거까지
   function sanitizeChoiceHTML(html) {
     let s = String(html ?? '');
+
+    // 위험 제거
     s = s.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
     s = s.replace(/\son[a-z]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+
+    // 앞쪽 <br> 정리
+    s = s.replace(/^(?:\s*<br\s*\/?>\s*)+/i, '');
+
+    // ✅ 바깥을 통째로 감싼 단일 <p>면 벗겨내기
+    s = s.replace(/^\s*<p[^>]*>([\s\S]*?)<\/p>\s*$/i, '$1');
+
+    // (선택) 연속 <p> 사이는 <br>로 압축
+    s = s.replace(/<\/p>\s*<p[^>]*>/gi, '<br>');
+
     return s;
   }
 

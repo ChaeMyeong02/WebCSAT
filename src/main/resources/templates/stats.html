@@ -37,6 +37,89 @@
 </head>
 <body data-user-id="[[${userId}]]" data-mode="[[${mode}]]">
 <th:block th:replace="~{fragments/commonHeader :: header}"></th:block>
+<!-- 월별 오버뷰 열기 버튼(원하는 위치에 배치해도 됨) -->
+<button id="btnOverview" class="btn btn-outline-dark btn-sm" style="position:fixed; right:16px; top:92px; z-index:1100;">
+    월별 오버뷰
+</button>
+
+<!-- 월별 오버뷰 모달 -->
+<div class="modal fade" id="overviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">월별 성적 오버뷰</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 align-items-end mb-2">
+                    <div class="col-12 col-lg-4">
+                        <label class="form-label">모의고사 회차(CSAT)</label>
+                        <select id="ovMonth" class="form-select">
+                            <option value="">회차 선택</option>
+                        </select>
+                    </div>
+                    <!-- 관리자만 유저 선택 노출 -->
+                    <div class="col-12 col-lg-4" id="ovUserWrap" style="display:none;">
+                        <label class="form-label">사용자</label>
+                        <select id="ovUser" class="form-select">
+                            <option value="">사용자 선택</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-lg-4 d-flex gap-2">
+                        <button id="ovFetch" class="btn btn-primary flex-grow-1">불러오기</button>
+                        <a id="ovToStatsTop" href="#" class="btn btn-outline-dark btn-sm">상세 통계로</a>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                        <tr>
+                            <th style="min-width:140px;">과목</th>
+                            <th style="min-width:160px;">세부과목</th>
+                            <th class="text-end">내 점수</th>
+                            <th class="text-end">백분위</th>
+                            <th class="text-end">표준점수</th>
+                            <th class="text-end"></th>
+                        </tr>
+                        </thead>
+                        <tbody id="ovTbody">
+                        <tr><td colspan="6" class="text-center text-muted py-4">회차를 선택하고 불러오기를 눌러주세요.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 등급표(컷/표준점수) 모달 -->
+<div class="modal fade" id="cutModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cutModalTitle">등급표</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="cutSummary" class="mb-2"></div>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                        <tr>
+                            <th>등급</th>
+                            <th>원점수 컷</th>
+                            <th id="stdHead" style="display:none;">표준점수 컷</th>
+                        </tr>
+                        </thead>
+                        <tbody id="cutTbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -208,6 +291,7 @@
         </div>
     </div>
 </div>
+<script src="/js/overview.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/js/stats.js"></script>
 </body>

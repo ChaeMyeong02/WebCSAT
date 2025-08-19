@@ -35,31 +35,95 @@ function _displayName(u, id){
   return (u.nickname || u.name || u.username || u.email || ('user#'+id)).trim();
 }
 
+function _isPlaceholderName(name, id) {
+  return !name || new RegExp(`^user#${String(id)}$`, 'i').test(String(name).trim());
+}
+
+async function _resolveUserById(uid) {
+  const headers = authHeaders();
+  const endpoints = [
+    `/api/admin/users/${uid}`,
+    `/api/admin/user/${uid}`,
+    `/api/users/${uid}`,
+    `/api/user/${uid}`,
+    `/api/user?id=${encodeURIComponent(uid)}`
+  ];
+  for (const url of endpoints) {
+    try {
+      const r = await fetch(url, { headers });
+      if (!r.ok) continue;
+      const u = await r.json();
+      const name =
+        u.nickname ?? u.nickName ?? u.name ?? u.fullName ??
+        u.username ?? u.email ?? u.user?.nickname ?? u.user?.name ??
+        `user#${uid}`;
+      const roleStr = _rolesToString(u.authorities ?? u.roles ?? u.role ?? u.scope ?? u.scopes ?? u.user?.role);
+      USER_DIR.map.set(String(uid), { name: String(name).trim(), roleStr, isUser: true, raw: u });
+      return;
+    } catch {}
+  }
+  // 그래도 실패하면 placeholder 유지
+  if (!USER_DIR.map.has(String(uid))) {
+    USER_DIR.map.set(String(uid), { name: `user#${uid}`, roleStr: '', isUser: true, raw: null });
+  }
+}
+
+async function _hydrateUserNamesFromRows(rows) {
+  await ensureUsersLoaded();
+  const uids = [...new Set(rows.map(r => String(r.userId)).filter(Boolean))];
+  const need = uids.filter(uid => {
+    const rec = USER_DIR.map.get(uid);
+    return !rec || _isPlaceholderName(rec.name, uid);
+  });
+  await Promise.all(need.map(_resolveUserById));
+}
+
+
 // 모든 사용자를 한 번만 불러와 캐시
 async function ensureUsersLoaded(){
   if (USER_DIR.loaded) return USER_DIR;
 
   const urls = ['/api/admin/users','/api/users','/api/user/all'];
-  let list = [];
+  let raw = null;
+
   for (const u of urls){
     try {
       const r = await fetch(u, { headers: authHeaders() });
-      if (r.ok) { list = await r.json(); if (Array.isArray(list)) break; }
+      if (!r.ok) continue;
+      raw = await r.json();
+      break;
     } catch {}
   }
+
+  // 여러 응답 형태 지원: [], {content:[]}, {data:[]}, {items:[]}, {results:[]}
+  let list = [];
+  if (Array.isArray(raw)) list = raw;
+  else if (raw && Array.isArray(raw.content)) list = raw.content;
+  else if (raw && Array.isArray(raw.data))    list = raw.data;
+  else if (raw && Array.isArray(raw.items))   list = raw.items;
+  else if (raw && Array.isArray(raw.results)) list = raw.results;
+
   const map = new Map();
   const only = new Set();
 
-  if (Array.isArray(list)) {
-    for (const u of list){
-      const id = String(u.userId ?? u.id ?? '');
-      if (!id) continue;
-      const roleStr = _rolesToString(u.authorities ?? u.roles ?? u.role ?? u.scope ?? u.scopes);
-      const name    = _displayName(u, id);
-      const isUser  = _isRegularUser(roleStr);
-      map.set(id, { name, roleStr, isUser, raw: u });
-      if (isUser) only.add(id);
-    }
+  const toStr = (v)=> v == null ? '' : String(v);
+
+  for (const u of list){
+    const id =
+      toStr(u.userId ?? u.id ?? u.user_id ?? u.uid ?? u.user?.id ?? '');
+    if (!id) continue;
+
+    const roleStr = _rolesToString(u.authorities ?? u.roles ?? u.role ?? u.scope ?? u.scopes ?? u.user?.role);
+    const name =
+      (u.nickname ?? u.nickName ?? u.user?.nickname) ??
+      (u.name ?? u.fullName ?? u.user?.name) ??
+      (u.username ?? u.user?.username) ??
+      (u.email ?? u.user?.email) ??
+      (`user#${id}`);
+
+    const isUser = _isRegularUser(roleStr) || !roleStr; // 역할 못 읽어도 일반 유저로 간주
+    map.set(id, { name: String(name).trim(), roleStr, isUser, raw: u });
+    if (isUser) only.add(id);
   }
 
   USER_DIR.map = map;
@@ -67,6 +131,7 @@ async function ensureUsersLoaded(){
   USER_DIR.loaded = true;
   return USER_DIR;
 }
+
 
   // 맨 위 MODE 아래에 추가
   let SELECTED_USER_ID = null;
@@ -108,6 +173,59 @@ async function ensureUsersLoaded(){
   const $$ = (s) => Array.from(document.querySelectorAll(s));
   let distChart, trendChart, gradeChart, distCtx, trendCtx, gradeCtx;
   let LAST_ROWS = [];
+
+
+// ==== 값 라벨 플러그인 (Chart.js v4) ====
+const ValueLabelPlugin = {
+  id: 'valueLabel',
+  afterDatasetsDraw(chart, args, opts) {
+    const { ctx, data, chartArea } = chart;
+    const dsIndex = opts?.datasetIndex ?? 0;
+    const ds = data.datasets?.[dsIndex];
+    const meta = chart.getDatasetMeta(dsIndex);
+    if (!ds || !meta || meta.hidden) return;
+
+    // 너무 많을 땐 생략
+    const maxPoints = opts?.maxPoints ?? 60;
+    if ((ds.data?.length || 0) > maxPoints) return;
+
+    const fmt = opts?.formatter || ((v)=> String(Math.round(v)));
+    const offset = opts?.offset ?? 8;
+    const color  = opts?.color  ?? '#0b1220';
+    const font   = opts?.font   || { size: 11, weight: '600' };
+
+    ctx.save();
+    ctx.font = `${font.weight || ''} ${font.size || 11}px ${font.family || 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif'}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = color;
+
+    meta.data.forEach((elem, i) => {
+      const val = ds.data?.[i];
+      if (val == null || isNaN(val)) return;
+
+      const { x, y } = elem.getProps(['x','y'], true);
+      let yy = y - offset;
+      if (yy < chartArea.top + 6) yy = chartArea.top + 6; // 화면 밖 방지
+
+      const text = fmt(val, i, ds, chart);
+
+      // 가독성: 하얀 외곽선 + 채움
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,255,255,.9)';
+      ctx.strokeText(text, x, yy);
+      ctx.fillText(text, x, yy);
+    });
+
+    ctx.restore();
+  }
+};
+Chart.register(ValueLabelPlugin);
+
+// 점수(좌측 Y) / 등급(우측 Y) 색
+const COLOR_SCORE = '#1976d2';  // 파랑
+const COLOR_GRADE = '#2e7d32';  // 초록
+
 
   // ========== 공통 유틸 ==========
   const hide    = (sel) => $$(sel).forEach(el => el && (el.style.display = 'none'));
@@ -212,6 +330,10 @@ async function ensureUsersLoaded(){
       titleWrap.insertAdjacentElement('afterend', row);
     }
   }
+  function distributionCountLabel(){
+    // 관리자 한 명 보기면 '응시수', 그 외엔 '인원수'
+    return readMode() === 'one' ? '응시수' : '인원수';
+  }
 
   function updateRemindLabel() {
 
@@ -275,6 +397,10 @@ async function ensureUsersLoaded(){
     ensureUserSelectorPlacement();
     updateRemindLabel();
   }
+//  if (MODE === 'one' && pUserId) {
+//    const sel = document.getElementById('userSelect');
+//    if (sel) sel.value = pUserId;
+//  }
 
   // ========== 룩업 ==========
   async function loadSubjects() {
@@ -298,9 +424,14 @@ async function ensureUsersLoaded(){
 
   function fillCsatDates(list){
     const cs = document.getElementById('csatDate');
-    const opts = ['<option value="">회차 선택</option>']
+    const prev = cs?.value || ''; // 현재 선택값 보관
+    const opts = ['<option value="">전체 응시월</option>']
       .concat((list||[]).map(v => `<option value="${v}">${v}</option>`));
     cs.innerHTML = opts.join('');
+    // 목록에 이전 값이 있으면 그대로 유지
+    if (prev && Array.from(cs.options).some(o => o.value === prev)) {
+      cs.value = prev;
+    }
     cs.disabled = !(list && list.length);
   }
 
@@ -423,7 +554,7 @@ async function ensureUsersLoaded(){
     if (distChart) distChart.destroy();
     distChart = new Chart(distCtx, {
       type:'bar',
-      data:{ labels, datasets:[{ label:'인원수', data:counts }] },
+      data:{ labels, datasets:[{ label: distributionCountLabel(), data: counts }] },
       options:{
         responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{display:true}, title:{ display:true, text:`점수 분포 · 응시 ${attempts}건 · 참여자 ${participants}명` } }
@@ -480,7 +611,7 @@ async function ensureUsersLoaded(){
       if (gradeChart) gradeChart.destroy();
       gradeChart = new Chart(gradeCtx, {
         type:'bar',
-        data:{ labels, datasets:[{ label:'인원수', data:buckets }] },
+        data:{ labels, datasets:[{ label: distributionCountLabel(), data: buckets }] },
         options:{
           responsive:true, maintainAspectRatio:false,
           plugins:{ legend:{display:true}, title:{ display:true, text:`등급 분포(컷 기준) · 회차 ${csatDate}` } }
@@ -510,7 +641,7 @@ async function ensureUsersLoaded(){
   // ========== 점수/백분위 추이 ==========
   async function drawTrend(){
     try{
-      const admin = isAdmin();
+      const admin      = isAdmin();
       const subjectId  = $('#subjectId').value || '';
       const subclassId = $('#subclassId').value || '';
       const csatDate   = $('#csatDate').value || '';
@@ -522,57 +653,80 @@ async function ensureUsersLoaded(){
       if (csatDate)   qs.set('csatDate', csatDate);
       const qsStr = qs.toString();
 
-      let url;
-      if (MODE === 'all') {
-        // 전체 — 관리자 집계 엔드포인트
-        url = `/api/stats/admin/attempt-trend${qsStr ? `?${qsStr}` : ''}`;
+      // ==== 데이터 불러오기 (기존 로직 유지) ====
+      let arr;
+      if (readMode() === 'all') {
+        const rows = (Array.isArray(LAST_ROWS) && LAST_ROWS.length)
+          ? LAST_ROWS
+          : await fetchAllRows();
+        arr = rows
+          .slice()
+          .sort((a,b)=> new Date(a.testDate) - new Date(b.testDate))
+          .map(r => ({
+            value: Number(r.result ?? r.score ?? 0),
+            csatDate: r.csatDate ?? '',
+            testDate: r.testDate ?? ''
+          }));
       } else {
-        // mine/one — 특정 사용자
-        let uid = (MODE === 'one') ? (selUserId || null) : (getUidForApi() || null);
-        if (!uid) {
-          setText('trendInfo','사용자 선택 필요');
-          if (trendChart) trendChart.destroy();
-          return;
-        }
-        url = `/api/stats/user/${encodeURIComponent(uid)}/attempt-trend${qsStr ? `?${qsStr}` : ''}`;
+        let uid = (readMode() === 'one') ? (selUserId || null) : (getUidForApi() || null);
+        if (!uid) { setText('trendInfo','사용자 선택 필요'); if (trendChart) trendChart.destroy(); return; }
+        const url = `/api/stats/user/${encodeURIComponent(uid)}/attempt-trend${qsStr ? `?${qsStr}` : ''}`;
+        const res = await fetch(url, { headers: authHeaders() });
+        if (!res.ok) throw new Error('trend ' + res.status);
+        arr = await res.json();
       }
-
-      const res = await fetch(url, { headers: authHeaders() });
-      if (!res.ok) throw new Error('trend ' + res.status);
-      const arr = await res.json();
 
       const normalize = (x) => {
         if (x == null) return 0;
         if (typeof x === 'number') return x;
         if (typeof x === 'string' && !isNaN(x)) return Number(x);
         if (typeof x === 'object') {
-          const v = x.result ?? x.score ?? x.avgScore ?? x.avg_score ?? x.average ?? x.value ?? x.percentile ?? 0;
+          const v = x.value ?? x.result ?? x.score ?? x.avgScore ?? x.avg_score ?? x.average ?? x.percentile ?? 0;
           return Number(v) || 0;
         }
         return 0;
       };
+
       const values    = arr.map(normalize);
       const csatDates = arr.map(x => (x && typeof x === 'object') ? (x.csatDate ?? '') : '');
       const testDates = arr.map(x => (x && typeof x === 'object') ? (x.testDate ?? '') : '');
       const labels    = arr.map((_, i) => `${i+1}회차`);
 
+      // 점수/백분위 판단 (기존)
       const usingPercentile =
         arr.some(o => o && typeof o === 'object' && o.percentile != null) &&
         !arr.some(o => o && typeof o === 'object' && (o.result != null || o.score != null || o.avgScore != null || o.avg_score != null));
+
       const maxVal = Math.max(0, ...values);
       const yMax = usingPercentile ? 100 : (maxVal <= 1 ? 1 : maxVal <= 10 ? 10 : Math.ceil((maxVal + 5) / 10) * 10);
 
-      const titleEl = document.getElementById('trendTitle');
-      if (titleEl) {
-        if (MODE === 'all') {
-          titleEl.textContent = usingPercentile ? '전체 백분위 추이' : '전체 평균 점수 추이';
-        } else if (MODE === 'one') {
-          titleEl.textContent = usingPercentile ? '선택 사용자 백분위 추이' : '선택 사용자 점수 추이';
-        } else {
-          titleEl.textContent = usingPercentile ? '내 백분위 추이' : '내 점수 추이';
+      // ==== 등급 오버레이: 과목+세부과목+응시월 모두 고르면 표시 ====
+      let gradeData = null;
+      if (!usingPercentile && subjectId && subclassId && csatDate) {
+        try {
+          const cuts = await fetchGradeCuts(csatDate, subclassId);
+          if (cuts) {
+            // 각 점수 → 등급(1~9)
+            gradeData = values.map(v => gradeFromScore(v, cuts));
+          }
+        } catch (e) {
+          console.warn('grade cuts for trend failed', e);
         }
       }
 
+      // 제목
+      const titleEl = document.getElementById('trendTitle');
+      if (titleEl) {
+        if (readMode() === 'all') {
+          titleEl.textContent = usingPercentile ? '전체 백분위 추이(개별 시도)' : (gradeData ? '전체 점수·등급 추이(개별 시도)' : '전체 점수 추이(개별 시도)');
+        } else if (readMode() === 'one') {
+          titleEl.textContent = usingPercentile ? '선택 사용자 백분위 추이' : (gradeData ? '선택 사용자 점수·등급 추이' : '선택 사용자 점수 추이');
+        } else {
+          titleEl.textContent = usingPercentile ? '내 백분위 추이' : (gradeData ? '내 점수·등급 추이' : '내 점수 추이');
+        }
+      }
+
+      // 캔버스 폭 자동
       const canvas = trendCtx.canvas;
       let wrap = document.getElementById('trendScroll');
       if (!wrap) {
@@ -589,29 +743,96 @@ async function ensureUsersLoaded(){
       canvas.style.width  = `${minWidth}px`;
       canvas.style.height = `320px`;
 
+      // ==== 데이터셋 구성 (점수 + [옵션] 등급) ====
+      const datasets = [{
+        label: usingPercentile ? '백분위(%)' : '점수',
+        data: values,
+        tension: .25,
+        pointRadius: 3,
+        borderColor: COLOR_SCORE,
+        backgroundColor: COLOR_SCORE,
+        yAxisID: 'y'
+      }];
+
+      if (gradeData) {
+        datasets.push({
+          label: '등급',
+          data: gradeData,
+          tension: 0,               // 계단 느낌으로 보이게 하고 싶으면 0
+          stepped: true,            // 등급은 구간 값이라 계단선이 보기 좋음
+          pointRadius: 3,
+          borderColor: COLOR_GRADE,
+          backgroundColor: COLOR_GRADE,
+          yAxisID: 'y2'
+        });
+      }
+
+      // ==== 축 설정: 좌(점수=파랑) / 우(등급=초록) ====
+      const scales = {
+        x: { title: { display: true, text: '회차 (응시 순서)' } },
+        y: {
+          beginAtZero: true,
+          suggestedMax: yMax,
+          title: { display: true, text: usingPercentile ? '백분위(%)' : '점수', color: COLOR_SCORE },
+          ticks: { color: COLOR_SCORE }
+        }
+      };
+
+      if (gradeData) {
+        scales.y2 = {
+          position: 'right',
+          min: 1,
+          max: 9,
+          reverse: true,                 // ✅ 1등급이 위, 9등급이 아래
+          ticks: {
+            stepSize: 1,
+            color: COLOR_GRADE,
+            callback: v => `${v}등급`    // 보기 좋게 라벨
+          },
+          title: { display: true, text: '등급', color: COLOR_GRADE },
+          grid: { drawOnChartArea: false }
+        };
+      }
+
       if (trendChart) trendChart.destroy();
       trendChart = new Chart(trendCtx, {
         type: 'line',
-        data: { labels, datasets: [{ label: usingPercentile ? '백분위(%)' : '점수', data: values, tension: .25, pointRadius: 3 }]},
+        data: { labels, datasets },
         options: {
-          responsive: true, maintainAspectRatio: false,
-          scales: {
-            x: { title: { display: true, text: '회차 (응시 순서)' } },
-            y: { beginAtZero: true, suggestedMax: yMax, title: { display: true, text: usingPercentile ? '백분위(%)' : '점수' } }
-          },
+          responsive: true,
+          maintainAspectRatio: false,
+          scales,
           plugins: {
-            legend: { display: false },
+            legend: { display: !!gradeData }, // 등급 있을 때만 범례 표시
             tooltip: {
               callbacks: {
-                title: (items)=>{ const i = items[0].dataIndex; const t=[`${i+1}회차`]; if (testDates[i]) t.push(`${formatDateTimeExact(testDates[i])} 응시`); if (csatDates[i]) t.push(`모의고사 ${csatDates[i]}`); return t; },
-                label: (it)=> usingPercentile ? `백분위 ${it.formattedValue}%` : `점수 ${it.formattedValue}`
+                title: (items)=>{ const i=items[0].dataIndex;
+                  const t=[`${i+1}회차`];
+                  if (testDates[i]) t.push(`${formatDateTimeExact(testDates[i])} 응시`);
+                  if (csatDates[i]) t.push(`모의고사 ${csatDates[i]}`);
+                  return t;
+                },
+                label: (it)=> {
+                  const v = it.parsed.y;
+                  if (it.dataset.yAxisID === 'y2') return `등급 ${Math.round(v)}등급`;
+                  return usingPercentile ? `점수 ${Math.round(v)}%` : `점수 ${Math.round(v)}`;
+                }
               }
+            },
+            // 점 위 숫자 라벨: 점수(좌측 라인)에만, 파란색으로
+            valueLabel: {
+              datasetIndex: 0,
+              offset: 8,
+              maxPoints: 60,
+              font: { size: 11, weight: '700' },
+              color: COLOR_SCORE,
+              formatter: v => usingPercentile ? `${Math.round(v)}%` : `${Math.round(v)}`
             }
           }
         }
       });
 
-      setText('trendInfo', MODE==='all' ? `집계 포인트 ${arr.length}개` : `총 ${arr.length}회 시행`);
+      setText('trendInfo', readMode()==='all' ? `집계 포인트 ${arr.length}개` : `총 ${arr.length}회 시행`);
       requestAnimationFrame(()=>{ wrap.scrollLeft = wrap.scrollWidth - wrap.clientWidth; });
     } catch(e){
       console.warn(e);
@@ -619,6 +840,7 @@ async function ensureUsersLoaded(){
       if (trendChart) trendChart.destroy();
     }
   }
+
 
   // ========== 관리자 KPI ==========
   function computeAdminKpis(rows){
@@ -678,6 +900,9 @@ async function ensureUsersLoaded(){
 
     const tb = modalEl.querySelector('#gradeTbody');
     tb.innerHTML = '';
+
+    // 관리자라면 '최근 점수', 아니면 '내 점수'
+    const scoreLabel = isAdmin() ? '최근 점수' : '내 점수';
     for (let g=1; g<=9; g++){
       const cut = cuts['cut'+g];
       if (cut == null) continue;
@@ -686,7 +911,7 @@ async function ensureUsersLoaded(){
     }
     const summary = modalEl.querySelector('#gradeSummary');
     summary.textContent = (myScore!=null && myGrade!=null)
-      ? `내 점수 ${myScore}점 → ${myGrade}등급`
+      ? `${scoreLabel} ${myScore}점 → ${myGrade}등급`
       : `등급표`;
 
     const modal = new bootstrap.Modal(modalEl);
@@ -799,6 +1024,9 @@ async function ensureUsersLoaded(){
 
       let rows = Array.isArray(LAST_ROWS) && LAST_ROWS.length ? LAST_ROWS : await fetchAllRows();
 
+      await _hydrateUserNamesFromRows(rows);
+
+
       // role=USER만 남기기
       const onlyIds = (window.USER_DIR && USER_DIR.onlyUserIds) ? USER_DIR.onlyUserIds : null;
       if (onlyIds && onlyIds.size) {
@@ -841,9 +1069,12 @@ async function ensureUsersLoaded(){
         const sub    = r.subclassName ?? r.subclassId ?? '-';
         const score  = (r.result ?? r.score ?? '-') + '';
         const uid    = String(r.userId ?? '');
-        const uname  =
-          (window.USER_DIR && USER_DIR.map?.get(uid)?.name) ||
-          r.nickname || r.username || r.userName || `user#${uid}`;
+        const uname =
+          (USER_DIR.map.get(uid)?.name) ||
+          r.userName || r.name || r.displayName ||
+          r.nickname || r.nickName || r.username || r.email ||
+          r.user?.name || r.user?.nickname ||
+          `user#${uid}`;
 
         tb.insertAdjacentHTML('beforeend', `
           <tr>
@@ -882,6 +1113,8 @@ async function ensureUsersLoaded(){
   // (openReviewModal, ensureReviewModal 등 기존 함수들 유지)
 
   // ========== 부트 ==========
+  function param(name){ return new URLSearchParams(location.search).get(name) || ''; }
+
   document.addEventListener('DOMContentLoaded', async () => {
   if (!document.body.dataset.mode) {
     document.body.dataset.mode = MODE; // 'mine' | 'all' | 'one'
@@ -933,8 +1166,38 @@ async function ensureUsersLoaded(){
     try { await loadSubjects(); }
     catch (e) { console.error(e); alert('과목 목록을 불러오지 못했습니다. /api/lookup/subjects 확인 필요'); }
 
-    await loadCsatDatesForCurrentSelection();
-    await refreshAll();
+      const pSubject = param('subjectId');
+      const pSubclass = param('subclassId');
+      const pCsat = param('csatDate');
+      const pUserId = param('userId');
+      if (MODE === 'one' && pUserId) {
+        const sel = document.getElementById('userSelect');
+        if (sel) sel.value = pUserId;
+      }
+
+
+
+       if (pSubject) {
+          const sel = document.getElementById('subjectId');
+          if (sel) sel.value = pSubject;
+          // 세부과목 로드 후 값 반영
+          if (sel && pSubject !== '*') {
+            const res = await fetch(`/api/lookup/subclasses?subjectId=${pSubject}`, { headers: authHeaders() });
+            const list = res.ok ? await res.json() : [];
+            const sc = document.getElementById('subclassId');
+            sc.innerHTML = '<option value="">세부과목 선택</option>' + list.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+            sc.disabled = false;
+            if (pSubclass) sc.value = pSubclass;
+          }
+        }
+
+        await loadCsatDatesForCurrentSelection();
+        if (pCsat) {
+          const cs = document.getElementById('csatDate');
+          if (cs) cs.value = pCsat;
+        }
+
+        await refreshAll();
 
     if (MODE === 'mine') {
       hide('#adminSection,[data-role="admin-only"]');

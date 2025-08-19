@@ -14,6 +14,7 @@ public class StatsViewController {
 
     private final CurrentUserService currentUserService;
 
+
     @GetMapping("/stats")
     public String stats(@RequestParam(name = "mode", required = false) String mode, Model model) {
         return prepare(model, (mode == null || mode.isBlank()) ? "mine" : mode.toLowerCase());
