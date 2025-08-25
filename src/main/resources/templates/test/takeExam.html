@@ -59,6 +59,7 @@
           border: 1px solid #ccc;
           padding: 0.75rem;
           font-size: 0.9rem;
+          scroll-margin-bottom: 7rem;  /* 하단바 높이만큼 여유(취향껏 6~9rem) */
         }
 
         .question-box * { margin: 0; line-height: 1.3; }
@@ -97,7 +98,7 @@
         .pagination { text-align: center; margin-top: 1rem; }
 
         .fixed-pagination {
-            position: fixed;
+            position: sticky;      /* ← fixed 대신 sticky */
             bottom: 0;
             left: 0;
             width: 100%;
@@ -109,7 +110,7 @@
             align-items: center;         /* 가운데 정렬 */
             gap: .6rem;                  /* 위아래 간격 */
             justify-content: center;
-            z-index: 1000;
+            z-index: 10;
         }
 
         /* 페이지네이션 버튼 줄 간격/정렬 */
@@ -129,7 +130,7 @@
 
         /* 고정 하단바에 가려지지 않도록 문제 영역 하단 여백 추가(필요시) */
         .question-section {
-          padding-bottom: 6rem;        /* 마지막 문제/보기 가림 방지 */
+          padding-bottom: 1rem;        /* 마지막 문제/보기 가림 방지 */
         }
 
         /* --- loading overlay --- */
@@ -207,7 +208,7 @@
         </div>
     </div>
 
-    <div class="submit-btn fixed-pagination">
+    <div class="submit-btn fixed-pagination" id="examFooter">
         <div class="pagination">
             <button type="button" onclick="prevPage()">이전</button>
             <span id="pageInfo">1 / 1</span>
@@ -233,5 +234,31 @@
         <div id="loadingText">답안을 제출하고 있어요…</div>
     </div>
 </div>
+<script>
+    (function(){
+      function applyFooterGuard(){
+        const footer = document.getElementById('examFooter');
+        const header = document.querySelector('.exam-header');
+        const fh = footer ? Math.ceil(footer.getBoundingClientRect().height) : 0;
+        const hh = header ? Math.ceil(header.getBoundingClientRect().height) : 0;
+        document.documentElement.style.setProperty('--footer-h', fh + 'px');
+        document.documentElement.style.setProperty('--header-h', hh + 'px');
+      }
+
+      // 초기/리사이즈 시 반영
+      window.addEventListener('load', applyFooterGuard);
+      window.addEventListener('resize', applyFooterGuard);
+
+      // 페이지 이동 후에도 반영되도록 prev/next monkey patch
+      const origPrev = window.prevPage;
+      const origNext = window.nextPage;
+      if (typeof origPrev === 'function') {
+        window.prevPage = function(){ origPrev(); applyFooterGuard(); };
+      }
+      if (typeof origNext === 'function') {
+        window.nextPage = function(){ origNext(); applyFooterGuard(); };
+      }
+    })();
+</script>
 </body>
 </html>

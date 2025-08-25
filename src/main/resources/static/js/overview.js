@@ -1,5 +1,9 @@
 /* /js/overview.js */
 (() => {
+
+// 공통 유틸 부근 최상단에 추가
+let USER_NAME_MAP = new Map();
+
  // --- 관리자면 '최근 점수'로 헤더 라벨 교체 ---
  function applyScoreHeaderLabel() {
    // 오버뷰 모달 thead 의 '점수' 헤더(th)를 찾는다
@@ -11,7 +15,7 @@
     (ths.length >= 3 ? ths[2] : null);
    if (!scoreTh) return;
 
-   const label = isAdmin() ? '최근 점수' : '내 점수';
+   const label = '평균 점수';
    const badge = scoreTh.querySelector('.badge, .label'); // 배지 안에 글자가 있을 수 있음
    if (badge) badge.textContent = label;
    else scoreTh.textContent = label;
@@ -78,10 +82,7 @@ function isAdminRole(str){
   }
 
   function updateScoreColByUser() {
-    const sel = document.getElementById('ovUser');
-    const hasUser = !!(sel && sel.value && sel.value.trim() !== '');
-    const visible = !isAdmin() || hasUser; // 일반 유저는 항상 보임, 관리자+미선택이면 숨김
-    setOverviewScoreColVisible(visible);
+    setOverviewScoreColVisible(true);
   }
   function getUidForApi() {
     try {
@@ -176,7 +177,9 @@ function isAdminRole(str){
     if (csatDate) qs.set('csatDate', csatDate);
     if (userId)   qs.set('userId', userId);
     const rows = await fetchJSON('/api/exams?' + qs.toString());
-    const uid = userId || getUidForApi();
+    // 관리자인데 ovUser 선택이 없으면 전체 그대로 반환
+    const isAllAdmin = isAdmin() && !(userId && String(userId).trim());
+    const uid = userId || (isAllAdmin ? null : getUidForApi());
     return uid ? rows.filter(r => String(r.userId) === String(uid)) : rows;
   }
 
@@ -338,84 +341,126 @@ function isAdminRole(str){
     } catch { return null; }
   }
 
-  // ---------- 렌더: 오버뷰 표 (모든 세부과목 + 내 최신 응시 매칭) ----------
+  // ---------- 렌더: 오버뷰 표 (응시한 세부과목만 + 평균 + 점수 이력 버튼) ----------
   function renderOverviewTable(tbody, allSubclasses, rows, csatDate) {
-    const latestBySub = new Map(); // subId -> row
-    rows.slice().sort((a,b)=> new Date(b.testDate) - new Date(a.testDate))
-      .forEach(r => {
-        const key = String(r.subclassId ?? r.subclass_id ?? '');
-        if (!key) return;
-        if (!latestBySub.has(key)) latestBySub.set(key, r);
-      });
+    // 관리자인데 사용자 미선택이면 "전체 모드"
+    const isAllAdmin = isAdmin() && !((document.getElementById('ovUser')?.value || '').trim());
 
-    if (!allSubclasses.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">세부과목 목록이 없습니다.</td></tr>`;
+    // subclassId -> attempts[]
+    const attemptsBySub = new Map();
+    const numOrNull = v => {
+      const n = Number(v); return Number.isFinite(n) ? n : null;
+    };
+    const getScore = at => {
+      const v = pick(at, ['result','score','rawScore','raw_score','value']);
+      return numOrNull(v);
+    };
+    rows.forEach(r => {
+      const sid = String(r.subclassId ?? r.subclass_id ?? '');
+      if (!sid) return;
+      (attemptsBySub.get(sid) || attemptsBySub.set(sid, []).get(sid)).push(r);
+    });
+
+    const attemptedSubclasses = (allSubclasses || []).filter(sc => {
+      const sid = String(sc.id ?? sc.subclass_id ?? '');
+      return sid && attemptsBySub.has(sid);
+    });
+    if (!attemptedSubclasses.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">선택 회차에서 응시한 세부과목이 없습니다.</td></tr>`;
       return;
     }
 
-    const cmpIdAsc = (a, b) => {
-      const an = Number(a), bn = Number(b);
-      const aNum = !isNaN(an), bNum = !isNaN(bn);
-      if (aNum && bNum) return an - bn;
-      return String(a).localeCompare(String(b), 'ko');
+    const cmpIdAsc = (a,b)=> {
+      const an=Number(a), bn=Number(b);
+      return (!isNaN(an)&&!isNaN(bn)) ? (an-bn) : String(a).localeCompare(String(b),'ko');
     };
 
-    // 과목별 그룹 (subject_id)
-    const bySubjectId = new Map(); // subjectId -> { id, name, list: [] }
-    for (const sc of allSubclasses) {
-      const sid = String(sc.subjectId ?? sc.subject_id ?? '');
-      if (!sid) continue;
-      if (!bySubjectId.has(sid)) {
-        bySubjectId.set(sid, { id: sid, name: sc.subjectName || '-', list: [] });
-      }
-      bySubjectId.get(sid).list.push(sc);
+    const bySubjectId = new Map();
+    for (const sc of attemptedSubclasses) {
+      const sid = String(sc.id ?? sc.subclass_id ?? '');
+      const subj= String(sc.subjectId ?? sc.subject_id ?? '');
+      if (!sid || !subj) continue;
+      const subjectName = sc.subjectName || '-';
+      if (!bySubjectId.has(subj)) bySubjectId.set(subj, { id:subj, name:subjectName, list:[] });
+      bySubjectId.get(subj).list.push(sc);
     }
 
-    // ✅ 과목 정렬: subject_id 오름차순
-    const groups = [...bySubjectId.values()].sort((a,b)=> cmpIdAsc(a.id, b.id));
-
+    const groups = [...bySubjectId.values()].sort((a,b)=> cmpIdAsc(a.id,b.id));
     tbody.innerHTML = '';
+
+    // 유저 이름 보정용 (행에 name 필드 없을 수도 있어, 가능한 값 우선 사용)
+    const nameOf = (r) => {
+     const id = r.userId ?? r.user?.id;
+     const key = id != null ? String(id) : '';
+     if (key && USER_NAME_MAP.has(key)) return USER_NAME_MAP.get(key); // ✅ 콤보와 동일 로직
+    // 혹시 맵에 없으면 행 안의 필드로 폴백
+    return (
+     r.nickname || r.nickName || r.userName || r.name || r.displayName ||
+     r.username || r.email || (key ? `user#${key}` : 'user')
+     );
+    };
+
     for (const g of groups) {
-      // ✅ 세부과목 정렬: subclass_id(= sc.id) 오름차순
-      g.list.sort((a,b)=> cmpIdAsc((a.id ?? a.subclass_id), (b.id ?? b.subclass_id)));
-
+      g.list.sort((a,b)=> cmpIdAsc((a.id ?? a.subclass_id),(b.id ?? b.subclass_id)));
       for (const sc of g.list) {
-        const at = latestBySub.get(String(sc.id ?? sc.subclass_id));
+        const sid = String(sc.id ?? sc.subclass_id);
+        const ats = (attemptsBySub.get(sid) || []).slice()
+                      .sort((a,b)=> new Date(b.testDate) - new Date(a.testDate));
 
-        const myScore = pick(at, [
-          'result','score','rawScore','raw_score','value'
-        ]);
-        const pct = pick(at, [
+        const scores = ats.map(getScore).filter(v => v != null);
+        const avg = scores.length ? Math.round((scores.reduce((s,v)=>s+v,0)/scores.length)*10)/10 : null;
+
+        // 최신 시도 보조 지표(개별 모드에서만 의미 있음)
+        const latest = ats[ats.length-1] || {};
+        const pct = isAllAdmin ? null : pick(latest, [
           'percentile','pct','perc','percent','percentRank','rankPct',
           'stats.percentile','metrics.percentile','summary.percentile'
         ]);
-        const stdScore = pick(at, [
+        const stdScore = isAllAdmin ? null : pick(latest, [
           'standardScore','stdScore','std','standard',
           'standard_score','std_score','scoreStd',
           'stats.standardScore','metrics.standardScore','summary.standardScore'
         ]);
 
+        // 모달 payload
+        const itemsForMine = ats.map(a => ({ date:a.testDate ?? '', score:getScore(a) }));
+        const itemsForAll  = ats.map(a => ({
+          userName: nameOf(a),
+          date: a.testDate ?? '',
+          score: getScore(a)
+        }));
+
+        const payload = encodeURIComponent(JSON.stringify(isAllAdmin ? itemsForAll : itemsForMine));
+        const scoreBtnClass = isAllAdmin ? 'btn-score-list-all' : 'btn-score-list';
+
         tbody.insertAdjacentHTML('beforeend', `
           <tr class="ov-row"
               data-subject-id="${g.id}"
               data-subject-name="${g.name || '-'}"
-              data-subclass-id="${sc.id ?? sc.subclass_id}"
+              data-subclass-id="${sid}"
               data-subclass-name="${sc.name || '-'}">
             <td>${g.name || '-'}</td>
             <td>${sc.name || '-'}</td>
-            <td class="text-end">${show(myScore)}</td>
+            <td class="text-end">
+              ${avg != null
+                ? `<button type="button"
+                           class="btn btn-link p-0 ${scoreBtnClass}"
+                           data-subname="${encodeURIComponent(sc.name || '-')}"
+                           data-csat="${encodeURIComponent(csatDate)}"
+                           data-scores="${payload}">
+                     ${avg}
+                   </button>`
+                : '-'}
+            </td>
             <td class="text-end">${show(pct)}</td>
             <td class="text-end">${show(stdScore)}</td>
             <td class="text-end">
-              <a class="btn btn-sm btn-outline-secondary"
-                 href="${buildStatsHrefFor(g.id, (sc.id ?? sc.subclass_id))}">
-                상세
-              </a>
+              <a class="btn btn-sm btn-outline-secondary" href="${buildStatsHrefFor(g.id, sid)}">상세</a>
               <button class="btn btn-sm btn-primary btn-show-cut"
                       data-csat="${encodeURIComponent(csatDate)}"
-                      data-subid="${encodeURIComponent(sc.id ?? sc.subclass_id)}"
+                      data-subid="${encodeURIComponent(sid)}"
                       data-subname="${encodeURIComponent(sc.name || '-')}"
-                      data-myscore="${show(myScore)}">
+                      data-myscore="${avg != null ? avg : ''}">
                 등급표
               </button>
             </td>
@@ -424,6 +469,87 @@ function isAdminRole(str){
       }
     }
   }
+
+ // ---------- 점수 이력 모달 (개인 모드: 응시일/점수) ----------
+ function ensureScoresModal() {
+   if (document.getElementById('scoresModal')) return;
+   document.body.insertAdjacentHTML('beforeend', `
+     <div class="modal fade" id="scoresModal" tabindex="-1" aria-hidden="true">
+       <div class="modal-dialog modal-md modal-dialog-scrollable">
+         <div class="modal-content">
+           <div class="modal-header">
+             <h5 class="modal-title" id="scoresModalTitle"
+                 style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 2rem);">
+               점수 목록
+             </h5>
+             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+           </div>
+           <div class="modal-body">
+             <table class="table table-sm align-middle mb-0">
+               <thead><tr><th>응시일</th><th class="text-end">점수</th></tr></thead>
+               <tbody id="scoresTbody"></tbody>
+             </table>
+           </div>
+         </div>
+       </div>
+     </div>`);
+ }
+ function openScoresModal({ subclassName, csatDate, items }) {
+   ensureScoresModal();
+   const title = document.getElementById('scoresModalTitle');
+   const tb = document.getElementById('scoresTbody');
+   title.textContent = `${subclassName} · ${csatDate} — 점수 목록`;
+   items.sort((a,b)=> new Date(b.date) - new Date(a.date)); // 최신순
+   tb.innerHTML = items.length
+     ? items.map(it => `
+         <tr>
+           <td>${it.date ? new Date(it.date).toLocaleString() : '-'}</td>
+           <td class="text-end">${it.score ?? '-'}</td>
+         </tr>`).join('')
+     : `<tr><td colspan="2" class="text-center text-muted">응시 이력이 없습니다.</td></tr>`;
+   new bootstrap.Modal(document.getElementById('scoresModal')).show();
+ }
+
+ // ---------- 점수 이력 모달 (전체 모드: 사용자/응시일/점수) ----------
+ function ensureScoresModalAll() {
+   if (document.getElementById('scoresModalAll')) return; // ✅ 올바른 ID 체크
+   document.body.insertAdjacentHTML('beforeend', `
+     <div class="modal fade" id="scoresModalAll" tabindex="-1" aria-hidden="true">
+       <div class="modal-dialog modal-lg modal-dialog-scrollable">
+         <div class="modal-content">
+           <div class="modal-header">
+             <h5 class="modal-title" id="scoresModalAllTitle"
+                 style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100% - 2rem);">
+               점수 목록
+             </h5>
+             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+           </div>
+           <div class="modal-body">
+             <table class="table table-sm align-middle mb-0">
+               <thead><tr><th>사용자</th><th>응시일</th><th class="text-end">점수</th></tr></thead>
+               <tbody id="scoresAllTbody"></tbody>
+             </table>
+           </div>
+         </div>
+       </div>
+     </div>`);
+ }
+ function openScoresModalAll({ subclassName, csatDate, items }) {
+   ensureScoresModalAll();
+   const title = document.getElementById('scoresModalAllTitle');
+   const tb = document.getElementById('scoresAllTbody');
+   title.textContent = `${subclassName} · ${csatDate} — 점수 목록`;
+   items.sort((a,b)=> new Date(b.date) - new Date(a.date)); // 최신순
+   tb.innerHTML = items.length
+     ? items.map(it => `
+         <tr>
+           <td>${it.userName || '-'}</td>
+           <td>${it.date ? new Date(it.date).toLocaleString() : '-'}</td>
+           <td class="text-end">${it.score ?? '-'}</td>
+         </tr>`).join('')
+     : `<tr><td colspan="3" class="text-center text-muted">표시할 점수가 없습니다.</td></tr>`;
+   new bootstrap.Modal(document.getElementById('scoresModalAll')).show();
+ }
 
 
   // ---------- 등급표 모달 ----------
@@ -489,6 +615,14 @@ function isAdminRole(str){
       $('#ovUserWrap').style.display = '';
       try {
         const users = await fetchUsers();
+
+        // ⬇️ 여기서 전역 맵도 한번에 채움 (id → 표시이름)
+        USER_NAME_MAP = new Map(
+          (users || []).map(u => [
+          String(u.userId ?? u.id),
+          String(u.nickname ?? u.name ?? u.username ?? u.email ?? `user#${u.userId ?? u.id}`)
+        ])
+        );
         const opts = ['<option value="">사용자 선택</option>'];
         for (const u of users) {
           const id = u.userId ?? u.id;
@@ -553,6 +687,28 @@ function isAdminRole(str){
       let cuts = null;
       try { cuts = await fetchCuts(csatDate, subclassId); } catch {}
       openCutModal({ csatDate, subclassName: subclassNm, myScore }, cuts);
+    });
+
+    // 위임 클릭 리스너(기존 등급표 리스너 옆에 추가)
+    document.body.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-score-list');
+      if (!btn) return;
+      const subclassNm = decodeURIComponent(btn.dataset.subname || '');
+      const csatDate = decodeURIComponent(btn.dataset.csat || '');
+      let items = [];
+      try { items = JSON.parse(decodeURIComponent(btn.dataset.scores || '[]')) || []; } catch {}
+      openScoresModal({ subclassName: subclassNm, csatDate, items });
+    });
+
+    // (NEW) 전체 모드: 사용자/날짜/점수 3열
+    document.body.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-score-list-all');
+      if (!btn) return;
+      const subclassNm = decodeURIComponent(btn.dataset.subname || '');
+      const csatDate   = decodeURIComponent(btn.dataset.csat || '');
+      let items = [];
+      try { items = JSON.parse(decodeURIComponent(btn.dataset.scores || '[]')) || []; } catch {}
+      openScoresModalAll({ subclassName: subclassNm, csatDate, items });
     });
   });
 })();

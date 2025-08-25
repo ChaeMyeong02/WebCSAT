@@ -33,13 +33,20 @@
         .btn-primary { background:#2563eb; border-color:#2563eb; }
         h2, h5 { color:#0b1220; }
         label.form-label { font-weight:600; color:#0b1220; }
+
+        #scoresModal .modal-title {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%; /* 혹시 버튼 옆 X 아이콘 때문에 잘릴 수 있으니 */
+        }
     </style>
 </head>
 <body data-user-id="[[${userId}]]" data-mode="[[${mode}]]">
 <th:block th:replace="~{fragments/commonHeader :: header}"></th:block>
 <!-- 월별 오버뷰 열기 버튼(원하는 위치에 배치해도 됨) -->
 <button id="btnOverview" class="btn btn-outline-dark btn-sm" style="position:fixed; right:16px; top:92px; z-index:1100;">
-    월별 오버뷰
+    모의고사별 오버뷰
 </button>
 
 <!-- 월별 오버뷰 모달 -->
@@ -47,7 +54,7 @@
     <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">월별 성적 오버뷰</h5>
+                <h5 class="modal-title">모의고사별 성적 오버뷰</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -77,7 +84,7 @@
                         <tr>
                             <th style="min-width:140px;">과목</th>
                             <th style="min-width:160px;">세부과목</th>
-                            <th class="text-end">내 점수</th>
+                            <th class="text-end">평균 점수</th>
                             <th class="text-end">백분위</th>
                             <th class="text-end">표준점수</th>
                             <th class="text-end"></th>
