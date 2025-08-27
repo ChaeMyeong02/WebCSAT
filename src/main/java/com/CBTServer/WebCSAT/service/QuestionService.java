@@ -259,4 +259,30 @@ public class QuestionService {
         return questions;
     }
 
+    public Integer computePaperScore(Long subjectId, Long subclassId, String csatDate) {
+        Long sum = null;
+
+        if (subclassId != null && csatDate != null && !csatDate.isBlank()) {
+            sum = questionRepository.sumScoreBySubclassIdAndCsatDate(subclassId, csatDate);
+            if (sum != null) return sum.intValue();
+        }
+        if (subclassId != null) {
+            sum = questionRepository.sumScoreBySubclassId(subclassId);
+            if (sum != null) return sum.intValue();
+        }
+        if (subjectId != null && csatDate != null && !csatDate.isBlank()) {
+            sum = questionRepository.sumScoreBySubjectIdAndCsatDate(subjectId, csatDate);
+            if (sum != null) return sum.intValue();
+        }
+        if (subjectId != null) {
+            sum = questionRepository.sumScoreBySubjectId(subjectId);
+            if (sum != null) return sum.intValue();
+        }
+        return null;
+    }
+
+    public List<String> getDistinctCsatDatesForSubclass(Long subclassId) {
+        return questionRepository.findDistinctCsatDates(subclassId);
+    }
+
 }

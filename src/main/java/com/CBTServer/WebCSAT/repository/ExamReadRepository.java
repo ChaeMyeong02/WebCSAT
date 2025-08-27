@@ -43,4 +43,33 @@ public interface ExamReadRepository extends JpaRepository<Exam, Long> {
             @Param("subjectId")  Long subjectId,
             @Param("subclassId") Long subclassId
     );
+
+    // ✅ (신규) from/to + userId까지 지원
+    @Query(value = """
+      SELECT 
+        e.exam_id     AS examId,
+        e.user_id     AS userId,
+        e.subclass_id AS subclassId,
+        e.csat_date   AS csatDate,
+        e.result      AS result,
+        e.test_date   AS testDate,
+        sc.subclass_name  AS subclassName
+      FROM exam e
+      JOIN subclass sc ON sc.subclass_id = e.subclass_id
+      WHERE (:csatDate   IS NULL OR e.csat_date   = :csatDate)
+        AND (:subjectId  IS NULL OR sc.subject_id = :subjectId)
+        AND (:subclassId IS NULL OR e.subclass_id = :subclassId)
+        AND (:userId     IS NULL OR e.user_id     = :userId)
+        AND (:fromTs     IS NULL OR e.test_date   >= :fromTs)
+        AND (:toTs       IS NULL OR e.test_date   <  :toTs)
+      ORDER BY e.test_date DESC
+      """, nativeQuery = true)
+    List<ExamRow> findAllFilteredRange(
+            @Param("csatDate")   String csatDate,
+            @Param("subjectId")  Long subjectId,
+            @Param("subclassId") Long subclassId,
+            @Param("userId")     Long userId,
+            @Param("fromTs")     LocalDateTime fromTs,
+            @Param("toTs")       LocalDateTime toTs
+    );
 }

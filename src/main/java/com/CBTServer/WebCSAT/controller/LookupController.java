@@ -2,6 +2,8 @@ package com.CBTServer.WebCSAT.controller;
 
 import com.CBTServer.WebCSAT.repository.GradeCutRepository;
 import com.CBTServer.WebCSAT.repository.LookupRepository;
+import com.CBTServer.WebCSAT.repository.QuestionRepository;
+import com.CBTServer.WebCSAT.service.QuestionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,7 +21,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class LookupController {
     private final LookupRepository repo;
+    private final QuestionRepository repo2;
     private final GradeCutRepository gradeCutRepository;
+    private final QuestionService questionService;
+
 
     @GetMapping("/subjects")
     public List<Map<String, Object>> subjects() {
@@ -45,16 +50,40 @@ public class LookupController {
                 .collect(Collectors.toList());
     }
 
-    @GetMapping("/csat-dates")
-    public List<String> csatDates(@RequestParam Long subclassId) {
-        return repo.findCsatDatesForSubclass(subclassId);
-    }
+//    @GetMapping("/csat-dates")
+//    public List<String> csatDates(@RequestParam Long subclassId) {
+//        return repo.findCsatDatesForSubclass(subclassId);
+//    }
 
     // ✅ 새로 추가: 전체 과목 기준 회차 목록
     @GetMapping("/csat-dates-global")
     public List<String> csatDatesGlobal() {
         return repo.findAllCsatDates();
     }
+
+    @GetMapping("/paper-score")
+    public ResponseEntity<?> getPaperScore(
+            @RequestParam Long subjectId,                 // ← subjectId 필수로 받는게 안전
+            @RequestParam(required = false) Long subclassId,
+            @RequestParam String csatDate
+    ) {
+        Integer total = repo2.sumPaperScore(csatDate, subjectId, subclassId); // ✅ 공통(0)+선택(1) 합산
+        return ResponseEntity.ok(Map.of("paperScore", total == null ? 0 : total));
+    }
+
+    @GetMapping("/csat-dates")
+    public List<String> getCsatDates(@RequestParam Long subclassId) {
+        return questionService.getDistinctCsatDatesForSubclass(subclassId);
+    }
+
+//    @GetMapping("/api/lookup/paper-score")
+//    public ResponseEntity<Integer> paperScore(
+//            @RequestParam Long subjectId,
+//            @RequestParam(required=false) Long subclassId,
+//            @RequestParam String csatDate) {
+//        Integer total = repo2.sumPaperScore(csatDate, subjectId, subclassId);
+//        return ResponseEntity.ok(total == null ? 0 : total);
+//    }
 
 //    @GetMapping("/grade-cuts")
 //    public ResponseEntity<?> getGradeCuts(

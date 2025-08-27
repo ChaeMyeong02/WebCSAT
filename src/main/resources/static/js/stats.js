@@ -3,8 +3,11 @@
   // === 만점(퍼센트 계산) 관련 전역 설정 ===
   const DEFAULT_MAX_SCORE = 100;
   // null: 모름, false: 지원 안 함 -> 네트워크 호출 스킵
-  let PAPER_SCORE_FETCH_AVAILABLE = null;
+//  let PAPER_SCORE_FETCH_AVAILABLE = null;
 
+const PAPER_SCORE_CACHE = new Map();
+let PAPER_SCORE_FETCH_AVAILABLE = null; // null=모름, true/false=결과 기억
+let QUESTIONS_ENDPOINT_AVAILABLE = null; // ← 추가: /api/questions 존재 여부 기억
 
   // ✅ 과목/세부과목/응시월이 전부 기본값이면 true
   function isAllDefaultSelection(){
@@ -51,6 +54,136 @@
       document.getElementById('trendChart')?.parentElement;
     if (trendWrap) trendWrap.style.display = '';
   }
+
+  // ==== 월 필터(연/월) 상태 ====
+  let FILTER_YEAR  = null; // 숫자(예: 2025) | null(전체)
+  let FILTER_MONTH = null; // 1..12 | null(전체)
+
+  // 안전한 Year/Month 파서(타임존 영향 최소화)
+  function _ymFromTestDate(v){
+    if (!v) return null;
+    const s = String(v);
+    const m = s.match(/^(\d{4})-(\d{2})/); // "YYYY-MM-..." 형태면 바로 사용
+    if (m)   return { y: Number(m[1]), m: Number(m[2]) };
+    const d = new Date(s);
+    if (isNaN(d)) return null;
+    return { y: d.getFullYear(), m: d.getMonth()+1 };
+  }
+
+  // rows -> 월필터 적용
+  function applyMonthFilter(rows){
+    if (!FILTER_YEAR && !FILTER_MONTH) return rows;
+    return (rows || []).filter(r => {
+      const ym = _ymFromTestDate(r.testDate);
+      if (!ym) return false; // testDate 파싱 실패 시 제외
+      if (FILTER_YEAR && ym.y !== Number(FILTER_YEAR)) return false;
+      if (FILTER_MONTH && ym.m !== Number(FILTER_MONTH)) return false;
+      return true;
+    });
+  }
+
+  // UI가 없으면 자동 생성(제목 아래)
+  function ensureMonthFilterUI(){
+    let row = document.getElementById('monthFilterRow');
+    if (!row){
+      row = document.createElement('div');
+      row.id = 'monthFilterRow';
+      row.className = 'd-flex align-items-center gap-2 flex-wrap mb-3';
+      row.style.display = 'none';
+      row.innerHTML = `
+        <label class="form-label m-0">기간</label>
+        <select id="yearSelect" class="form-select form-select-sm" style="width:auto; min-width:120px"></select>
+        <div id="monthStrip" class="d-flex gap-2 flex-wrap"></div>
+      `;
+      const titleWrap = document.querySelector('.container .d-flex.align-items-center.mb-3');
+      (titleWrap || document.querySelector('.container') || document.body).insertAdjacentElement('afterend', row);
+    }
+
+    // 이벤트 바인딩(한 번만)
+    const sel = document.getElementById('yearSelect');
+    const strip = document.getElementById('monthStrip');
+    if (sel && !sel._bound){
+      sel.addEventListener('change', () => {
+        FILTER_YEAR  = sel.value ? Number(sel.value) : null;
+        renderMonthStrip(LAST_ROWS_RAW || []); // 이용가능 월 on/off 다시 계산
+        refreshAll();
+      });
+      sel._bound = true;
+    }
+    if (strip && !strip._bound){
+      strip.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-m]');
+        if (!btn) return;
+        const clicked = btn.dataset.m ? Number(btn.dataset.m) : null;
+        FILTER_MONTH = (FILTER_MONTH === clicked ? null : clicked); // 같은 월 재클릭시 해제
+        [...strip.querySelectorAll('[data-m]')].forEach(b => {
+          const m = b.dataset.m ? Number(b.dataset.m) : null;
+          b.classList.toggle('btn-primary', m === FILTER_MONTH);
+          b.classList.toggle('btn-outline-primary', m !== FILTER_MONTH);
+        });
+        refreshAll();
+      });
+      strip._bound = true;
+    }
+    row.style.display = '';
+  }
+
+  // 연도/월 UI 그림
+  function renderMonthStrip(baseRows){
+    ensureMonthFilterUI();
+    const sel   = document.getElementById('yearSelect');
+    const strip = document.getElementById('monthStrip');
+    if (!sel || !strip) return;
+
+    const yms = (baseRows || [])
+      .map(r => _ymFromTestDate(r.testDate))
+      .filter(Boolean);
+
+    const years = [...new Set(yms.map(o => o.y))].sort((a,b) => b - a);
+    sel.innerHTML = ['<option value="">전체 연도</option>']
+      .concat(years.map(y => `<option value="${y}" ${Number(FILTER_YEAR)===y?'selected':''}>${y}년</option>`))
+      .join('');
+
+    const available = new Set(
+      yms.filter(o => !FILTER_YEAR || o.y === Number(FILTER_YEAR)).map(o => o.m)
+    );
+
+    // 전체(모든 연도) 모드에서 월별 유무 판단용
+    const monthsAll = new Set(yms.map(o => o.m));
+
+    // (옵션) 월별 건수 뱃지
+    const counts = new Map();
+    for (const {y,m} of yms){ if (y && m){
+      const k = `${y}-${m}`;
+      counts.set(k, (counts.get(k) || 0) + 1);
+    }}
+
+    function btn(m, label){
+      const isActive = (m==null && FILTER_MONTH==null) || (m!=null && Number(FILTER_MONTH)===m);
+
+      // ✅ 데이터 유무 → 색상 결정: 있음=흰색(btn-light), 없음=회색(btn-secondary)
+      const hasData = FILTER_YEAR
+        ? (m==null ? available.size>0 : available.has(m))       // 선택된 연도 내
+        : (m==null ? yms.length>0 : monthsAll.has(m));          // 전체 연도 기준
+
+      const cls = isActive
+        ? 'btn btn-sm btn-primary text-white'                   // 선택됨 = 파란색
+        : (hasData ? 'btn btn-sm btn-light border fw-semibold'  // 데이터 있음 = 흰색(테두리)
+                   : 'btn btn-sm btn-secondary text-white');    // 데이터 없음 = 회색
+
+      const key   = (m!=null && FILTER_YEAR) ? `${Number(FILTER_YEAR)}-${m}` : null;
+      const count = (m!=null && key && counts.get(key)) || 0;
+      const badge = (m!=null && count>0)
+        ? ` <span class="badge bg-primary-subtle text-primary-emphasis">${count}</span>` : '';
+
+      return `<button type="button" class="${cls}" data-m="${m??''}">${label}${badge}</button>`;
+    }
+
+    strip.innerHTML = [ btn(null,'전체보기') ]
+      .concat(Array.from({length:12}, (_,i)=>btn(i+1, `${i+1}월`)))
+      .join('');
+  }
+
 
   // ===== 모드 처리 =====
   function readMode() {
@@ -116,6 +249,30 @@
     if (!USER_DIR.map.has(String(uid))) {
       USER_DIR.map.set(String(uid), { name: `user#${uid}`, roleStr: '', isUser: true, raw: null });
     }
+  }
+
+  async function fetchJSON(url, opts = {}) {
+    const res = await fetch(url, opts);
+    const status = res.status;
+    const ok = res.ok;
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
+    const text = await res.text();
+
+    let json = null;
+    if (ct.includes('json')) {
+       try { json = JSON.parse(text); } catch {}
+     } else {
+       // 헤더가 틀려도 바디가 JSON처럼 보이면 파싱 시도
+       const t = text.trim();
+       if (t.startsWith('{') || t.startsWith('[')) {
+         try { json = JSON.parse(t); } catch {}
+       }
+     }
+     // 디버그: JSON이 아니면 처음 120자 찍어 확인
+     if (ok && !json) {
+       console.warn('[fetchJSON] Non-JSON body', { url, status, ct, first: (text || '').slice(0,120) });
+     }
+    return { ok, status, json, ct, text };
   }
 
   async function _hydrateUserNamesFromRows(rows) {
@@ -184,7 +341,116 @@
   // ==== (상단 전역 부근) 과목/세부과목/만점 캐시 ====
   let SUBJECT_DIR = new Map();   // subjectId -> { name }
   let SUBCLASS_DIR = new Map();  // subclassId -> { name, count, subjectId }
-  const PAPER_SCORE_CACHE = new Map(); // key `${csatDate}::${subclassId}` -> number
+  // 파일 상단 전역 근처에 한 번만 선언
+//  const PAPER_SCORE_CACHE = new Map();
+//  let PAPER_SCORE_FETCH_AVAILABLE = null; // null=모름, true/false=결과 기억
+
+  async function fetchPaperScore(csatDate, subclassId, subjectId) {
+    const key = `${csatDate ?? ''}::${subclassId ?? ''}::${subjectId ?? ''}`;
+    if (PAPER_SCORE_CACHE.has(key)) return PAPER_SCORE_CACHE.get(key);
+
+    const fb0 = getFallbackPaperScore(subjectId, subclassId);
+    if (Number.isFinite(fb0)) { PAPER_SCORE_CACHE.set(key, fb0); return fb0; }
+
+    if (PAPER_SCORE_FETCH_AVAILABLE === false) { PAPER_SCORE_CACHE.set(key, null); return null; }
+
+    const qs = new URLSearchParams();
+    if (subclassId) qs.set('subclassId', subclassId);
+    if (subjectId)  qs.set('subjectId', subjectId);
+    if (csatDate)   qs.set('csatDate', csatDate);
+
+    // 1) 서버가 주는 값은 받아만 둔다(즉시 return 금지)
+    let direct = null;
+    try {
+      const r3 = await fetchJSON(`/api/lookup/paper-score?` + qs.toString(), { headers: authHeaders() });
+      if (r3.status === 404) { PAPER_SCORE_FETCH_AVAILABLE = false; }
+      if (r3.ok && r3.json != null) {
+        const n = Number(r3.json?.paperScore ?? r3.json?.totalScore ?? r3.json);
+        if (Number.isFinite(n) && n > 0) {
+          PAPER_SCORE_FETCH_AVAILABLE = true;
+          direct = n; // ← 바로 return 하지 말고 보류
+        }
+      }
+    } catch (e) {
+      console.warn('paper-score fetch failed', e);
+    }
+
+    // 2) 폴백: /api/questions에서 공통(0)+선택(1) 합산
+    let total = null;
+
+    // /api/questions가 404로 확인된 적 있으면 더 이상 시도하지 않음
+    if (QUESTIONS_ENDPOINT_AVAILABLE !== false) {
+      try {
+        const q = new URLSearchParams();
+        if (subjectId) q.set('subjectId', subjectId);   // 공통(0) 매칭용
+        if (csatDate)  q.set('csatDate', csatDate);
+        q.set('size', '10000');
+
+        const resQ = await fetchJSON('/api/questions?' + q.toString(), { headers: authHeaders() });
+
+        // 한번 404면 기억해두고 다음부터는 조용히 스킵
+        if (resQ.status === 404) {
+          QUESTIONS_ENDPOINT_AVAILABLE = false;
+        }
+
+        if (resQ.ok && resQ.json) {
+          const list = Array.isArray(resQ.json) ? resQ.json
+            : Array.isArray(resQ.json?.content) ? resQ.json.content
+            : Array.isArray(resQ.json?.data)    ? resQ.json.data
+            : Array.isArray(resQ.json?.items)   ? resQ.json.items
+            : Array.isArray(resQ.json?.results) ? resQ.json.results : [];
+
+          const sum = sumPaperFromQuestions(list, { csatDate, subjectId, subclassId });
+          if (Number.isFinite(sum) && sum > 0) total = sum; // 합산이 있으면 우선 사용
+        }
+      } catch (e) {
+        console.warn('paper-score question-sum failed', e);
+      }
+    }
+
+    // 3) 최종 선택: 합산 > direct > 폴백
+    if (total == null && Number.isFinite(direct) && direct > 0) total = direct;
+
+    if (total != null) { PAPER_SCORE_CACHE.set(key, total); return total; }
+
+    const fb = getFallbackPaperScore(subjectId, subclassId);
+    if (Number.isFinite(fb)) { PAPER_SCORE_CACHE.set(key, fb); return fb; }
+    PAPER_SCORE_CACHE.set(key, null);
+    return null;
+
+    // ↓ 기존 그대로
+    function sumPaperFromQuestions(list, { csatDate, subjectId, subclassId }) {
+      const get = (o,k) => o?.[k] ?? o?.[k.replace(/[A-Z]/g, m => '_'+m.toLowerCase())];
+      let sum = 0;
+      for (const q of (Array.isArray(list) ? list : [])) {
+        if (csatDate && String(get(q,'csatDate')) !== String(csatDate)) continue;
+        const opt = Number(get(q,'optional') ?? 0);
+        const sid = String(get(q,'subjectId')  ?? '');
+        const sc  = String(get(q,'subclassId') ?? '');
+        const pt  = Number(get(q,'point') ?? get(q,'score') ?? get(q,'maxPoint') ?? 0);
+        if (!Number.isFinite(pt) || pt <= 0) continue;
+
+        // 공통(0)은 subjectId, 선택(1)은 subclassId로 매칭해서 합산
+        if (opt === 0 && subjectId && sid === String(subjectId)) sum += pt;
+        else if (opt === 1 && subclassId && sc === String(subclassId)) sum += pt;
+      }
+      return sum > 0 ? sum : null;
+    }
+  }
+
+const PAPER_SCORE_FALLBACKS = (typeof window !== 'undefined' && window.PAPER_SCORE_FALLBACKS)
+  ? window.PAPER_SCORE_FALLBACKS
+  : { bySubclass: {}, bySubject: {} };
+
+  function getFallbackPaperScore(subjectId, subclassId){
+    const F = (typeof PAPER_SCORE_FALLBACKS === 'object' && PAPER_SCORE_FALLBACKS)
+      ? PAPER_SCORE_FALLBACKS : { bySubclass:{}, bySubject:{} };
+    const a = F.bySubclass?.[String(subclassId ?? '')];
+    if (Number.isFinite(a)) return a;
+    const b = F.bySubject?.[String(subjectId ?? '')];
+    if (Number.isFinite(b)) return b;
+    return null;
+  }
 
   // 맨 위 MODE 아래에 추가
   let SELECTED_USER_ID = null;
@@ -286,77 +552,91 @@
 
 
   function pairKey(csatDate, subclassId){ return `${csatDate}::${subclassId}`; }
-//  const PAPER_SCORE_CACHE = new Map();
+// 총점 캐시: csatDate::subclassId::subjectId
+//const PAPER_SCORE_CACHE = new Map();
 
-  async function fetchPaperScore(csatDate, subclassId, subjectId){
-    const key = `${csatDate}::${subclassId || ''}::${subjectId || ''}`;
-    if (PAPER_SCORE_CACHE.has(key)) return PAPER_SCORE_CACHE.get(key);
-
-    // 이전처럼 "지원 안 함" 플래그로 전체 스킵하지 말고, 매번 시도해본다.
-    const headers = authHeaders();
-    const urls = [
-      // 1) 전용 엔드포인트(있으면 최적)
-      (subclassId && `/api/lookup/paper-score?subclassId=${encodeURIComponent(subclassId)}&csatDate=${encodeURIComponent(csatDate)}`) || null,
-      // 2) 세부과목+응시월 문제 합산
-      (subclassId && `/api/questions?subclassId=${encodeURIComponent(subclassId)}&csatDate=${encodeURIComponent(csatDate)}`) || null,
-      // 3) 과목+응시월만 있어도 문제 합산(세부과목이 없을 때)
-      (subjectId  && `/api/questions?subjectId=${encodeURIComponent(subjectId)}&csatDate=${encodeURIComponent(csatDate)}`) || null,
-    ].filter(Boolean);
-
-    let tried = 0, got404 = 0;
-
-    for (const url of urls){
-      tried++;
-      try{
-        const r = await fetch(url, { headers });
-        if (r.status === 404) { got404++; continue; }
-        if (!r.ok) continue;
-
-        const j = await r.json();
-
-        // ① 숫자 그대로
-        if (typeof j === 'number'){
-          PAPER_SCORE_CACHE.set(key, j);
-          return j;
-        }
-        // ② { paperScore: number }
-        if (j && typeof j.paperScore === 'number'){
-          PAPER_SCORE_CACHE.set(key, j.paperScore);
-          return j.paperScore;
-        }
-        // ③ 배열 or 페이지네이션 → score/point/points/weight 합산
-        const arr =
-          Array.isArray(j) ? j :
-          (Array.isArray(j?.content) ? j.content :
-          (Array.isArray(j?.data)    ? j.data :
-          (Array.isArray(j?.items)   ? j.items :
-          (Array.isArray(j?.results) ? j.results : null))));
-        if (Array.isArray(arr)){
-          const sum = arr.reduce((acc,q)=>
-            acc + (Number(q.score ?? q.point ?? q.points ?? q.weight) || 0), 0);
-          if (sum > 0){
-            PAPER_SCORE_CACHE.set(key, sum);
-            return sum;
-          }
-        }
-      }catch{/* 네트워크 오류는 건너뜀 */}
-    }
-
-    // 모든 시도 실패
-    if (tried && got404 === tried) {
-      // 진짜로 관련 API가 전혀 없을 때만 비활성화로 본다
-      PAPER_SCORE_FETCH_AVAILABLE = false;
-    }
-    PAPER_SCORE_CACHE.set(key, null);
-    return null;
-  }
+//async function fetchPaperScore(csatDate, subclassId, subjectId) {
+//  const key = `${csatDate ?? ''}::${subclassId ?? ''}::${subjectId ?? ''}`;
+//  if (PAPER_SCORE_CACHE.has(key)) return PAPER_SCORE_CACHE.get(key);
+//
+//  // (A) 로컬 폴백 먼저
+//  const fb = getFallbackPaperScore(subjectId, subclassId);
+//  if (Number.isFinite(fb)) { PAPER_SCORE_CACHE.set(key, fb); return fb; }
+//
+//  // (B) 이전에 엔드포인트 없음으로 판정되면 추가 네트워크 시도 스킵
+//  if (PAPER_SCORE_FETCH_AVAILABLE === false) { PAPER_SCORE_CACHE.set(key, null); return null; }
+//
+//  const headers = authHeaders();
+//  const qs = (obj) => {
+//    const u = new URLSearchParams();
+//    Object.entries(obj).forEach(([k,v]) => (v != null && v !== '') && u.set(k, String(v)));
+//    return u.toString();
+//  };
+//
+//  const candidates = [
+//    (subclassId && csatDate) && `/api/lookup/paper-score?${qs({ subclassId, csatDate })}`,
+//    (subclassId && csatDate) && `/api/questions?${qs({ subclassId, csatDate, size: 10000 })}`,
+//    (subclassId)             && `/api/questions?${qs({ subclassId, size: 10000 })}`,
+//    (subjectId && csatDate)  && `/api/questions?${qs({ subjectId, csatDate, size: 10000 })}`,
+//    (subjectId)              && `/api/questions?${qs({ subjectId, size: 10000 })}`,
+//  ].filter(Boolean);
+//
+//  // (C) 네트워크는 한 번만 “탐색”하고, 전부 실패(특히 404)면 앞으로 스킵
+//  let tried = 0, anySuccess = false;
+//
+//  // ... (기존 sumList/sumFromPaged 그대로) ...
+//
+//  for (const url of candidates) {
+//    tried++;
+//    try {
+//      const r = await fetch(url, { headers });
+//      if (!r.ok) {          // 404 등
+//        // 404라도 여기서 콘솔에 자동으로 찍히는 건 브라우저 네트워크 로그고, 우리는 조용히 패스
+//        continue;
+//      }
+//      anySuccess = true;
+//
+//      const j = await r.json();
+//
+//      if (typeof j === 'number') { PAPER_SCORE_CACHE.set(key, j); return j; }
+//      const direct = Number(j?.paperScore ?? j?.totalScore);
+//      if (Number.isFinite(direct) && direct > 0) { PAPER_SCORE_CACHE.set(key, direct); return direct; }
+//
+//      const baseUrl = url.split('?')[0] + '?' + (url.split('?')[1] || '');
+//      let sum = await sumFromPaged(baseUrl, j);
+//      if (sum == null) continue;
+//
+//      if (csatDate) {
+//        const list = Array.isArray(j) ? j
+//                    : Array.isArray(j?.content) ? j.content
+//                    : Array.isArray(j?.data)    ? j.data
+//                    : Array.isArray(j?.items)   ? j.items
+//                    : Array.isArray(j?.results) ? j.results : [];
+//        if (list.length && list[0]?.csatDate != null) {
+//          sum = sumList(list.filter(q => String(q.csatDate) === String(csatDate)));
+//        }
+//      }
+//
+//      if (sum > 0) { PAPER_SCORE_CACHE.set(key, sum); return sum; }
+//    } catch {
+//      // 네트워크 에러 등은 그냥 다음 후보로
+//    }
+//  }
+//
+//  if (tried && !anySuccess) {
+//    PAPER_SCORE_FETCH_AVAILABLE = false;            // 앞으로는 네트워크 시도 자체를 생략
+//    console.debug('[stats] paper-score endpoints unavailable; using fallbacks/100');
+//  }
+//
+//  PAPER_SCORE_CACHE.set(key, null);
+//  return null;
+//}
 
 
   function readMaxScore(o){
     const cand = [
-      o?.maxScore, o?.totalScore, o?.fullScore, o?.perfectScore,
-      o?.total, o?.perfect, o?.max, o?.max_point, o?.total_point,
-      o?.scoreMax, o?.paperScore
+      o?.paperScore, o?.maxScore, o?.totalScore, o?.fullScore, o?.perfectScore,
+      o?.max_point, o?.total_point, o?.scoreMax
     ];
     for (const v of cand) { const n = Number(v); if (Number.isFinite(n) && n > 0) return n; }
     return null; // 기본값은 퍼센트 계산부에서 최후에만 100 사용
@@ -642,7 +922,7 @@
   }
   function distributionCountLabel(){
     // 관리자 한 명 보기면 '응시수', 그 외엔 '인원수'
-    return readMode() === 'one' ? '응시수' : '인원수';
+    return readMode() === 'one' ? '인원수' : '응시수';
   }
 
   function updateRemindLabel() {
@@ -708,11 +988,18 @@
   // ========== 룩업 ==========
   async function loadSubjects() {
     let url = '/api/lookup/subjects';
-    let res = await fetch(url, { headers: authHeaders() });
-    if (!res.ok && res.status === 404) { url = '/api/subjects'; res = await fetch(url, { headers: authHeaders() }); }
-    if (!res.ok) throw new Error('subjects HTTP ' + res.status);
+    let r = await fetchJSON(url, { headers: authHeaders() });
+    if (!r.ok && r.status === 404) r = await fetchJSON('/api/subjects', { headers: authHeaders() });
+    if (!r.ok) throw new Error('subjects HTTP ' + (r.status || '??'));
+    const j = r.json;
+    const list =
+      Array.isArray(j)          ? j :
+      (j && Array.isArray(j.content)) ? j.content :
+      (j && Array.isArray(j.data))    ? j.data :
+      (j && Array.isArray(j.items))   ? j.items :
+      (j && Array.isArray(j.results)) ? j.results : [];
+    if (!Array.isArray(list)) throw new Error('subjects HTTP ' + (r.status || '??') + ' (bad shape)');
 
-    const list = await res.json();
 
     // SUBJECT_DIR 메모
     SUBJECT_DIR.clear();
@@ -763,8 +1050,8 @@
     let list = [];
     if (subclassId) {
       try {
-        const res = await fetch(`/api/lookup/csat-dates?subclassId=${subclassId}`, { headers: authHeaders() });
-        if (res.ok) list = await res.json();
+        const r = await fetchJSON(`/api/lookup/csat-dates?subclassId=${subclassId}`, { headers: authHeaders() });
+        if (r.ok && Array.isArray(r.json)) list = r.json;
       } catch {}
       if (!list.length) {
         const rows = await fetchAllRows({ ignoreCsat:true });
@@ -775,8 +1062,8 @@
       list = uniqueSorted(rows.map(r => r.csatDate));
     } else {
       try {
-        const res = await fetch('/api/lookup/csat-dates-global', { headers: authHeaders() });
-        if (res.ok) list = await res.json();
+        const r1 = await fetchJSON('/api/lookup/csat-dates-global', { headers: authHeaders() });
+        if (r1.ok && Array.isArray(r1.json)) list = r1.json;
       } catch {}
       if (!list.length) {
         const rows = await fetchAllRows({ ignoreCsat:true });
@@ -788,7 +1075,7 @@
   }
 
   // ========== 데이터 ==========
-  async function fetchAllRows(opts = {}){
+  async function fetchAllRows(opts = {}) {
     const { ignoreCsat = false } = opts;
     const subjectId  = $('#subjectId').value || '';
     const subclassId = $('#subclassId').value || '';
@@ -796,38 +1083,47 @@
     const selUserId  = $('#userSelect')?.value || '';
 
     const qs = new URLSearchParams();
+
+    // YEAR/MONTH → from/to  (한 번만!)
+    const y = window.FILTER_YEAR;
+    const m = window.FILTER_MONTH;
+    if (y && m) {
+      const mm = String(m).padStart(2,'0');
+      const from = `${y}-${mm}-01`;
+      const nextY = (m===12) ? y+1 : y;
+      const nextM = (m===12) ? 1 : m+1;
+      const to   = `${nextY}-${String(nextM).padStart(2,'0')}-01`;
+      qs.set('from', from); qs.set('to', to);
+    } else if (y && !m) {
+      qs.set('from', `${y}-01-01`);
+      qs.set('to',   `${y+1}-01-01`);
+    }
+
     if (subjectId && subjectId !== '*') qs.set('subjectId', subjectId);
     if (subclassId) qs.set('subclassId', subclassId);
     if (csatDate && !ignoreCsat) qs.set('csatDate', csatDate);
+    if (MODE === 'one' && selUserId) qs.set('userId', selUserId);
 
-    // MODE 별 사용자 스코프
-    if (MODE === 'one' && selUserId) {
-      qs.set('userId', selUserId); // 백엔드에서 지원하면 서버 필터, 아니면 클라에서 다시 필터링
-    }
+    const r = await fetchJSON('/api/exams?' + qs.toString(), { headers: authHeaders() });
+    if (!r.ok || !Array.isArray(r.json)) return [];
+    let data = r.json;
 
-    const res = await fetch(`/api/exams?` + qs.toString(), { headers: authHeaders() });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    let data = await res.json();
-
-    // mine: 내 것만 남기기(서버에서 전부 내려줄 경우 대비)
     if (MODE === 'mine') {
       const uid = getUidForApi();
       if (uid) data = data.filter(r => String(r.userId) === String(uid));
     }
-    // one: 선택 유저만 남기기(서버 필터 없을 때 대비)
     if (MODE === 'one' && selUserId) {
       data = data.filter(r => String(r.userId) === String(selUserId));
     }
-
-    // (추가) 전체/한명 모드에서는 USER만 남긴다
     if (MODE === 'all' || MODE === 'one') {
       await ensureUsersLoaded();
       if (USER_DIR.onlyUserIds.size) {
         data = data.filter(r => USER_DIR.onlyUserIds.has(String(r.userId)));
       }
     }
-    return data; // [{examId,userId,subclassId,csatDate,result,testDate,subclassName}]
+    return data;
   }
+
 
   // ========== 기본 통계 ==========
   function calcStats(rows){
@@ -854,10 +1150,9 @@
   // ========== 등급컷 분포 ==========
   async function fetchGradeCuts(csatDate, subclassId){
     const qs = new URLSearchParams({ csatDate, subclassId });
-    const res = await fetch(`/api/lookup/grade-cuts?` + qs.toString(), { headers: authHeaders() });
-    if (res.status === 204) return null;
-    if (!res.ok) throw new Error('grade-cuts HTTP ' + res.status);
-    return await res.json();
+    const r2 = await fetchJSON(`/api/lookup/grade-cuts?` + qs.toString(), { headers: authHeaders() });
+    if (!r2.ok || !r2.json) return null;  // HTML이나 404면 null 처리
+    return r2.json;
   }
   function gradeFromScore(score, cuts){
     if (score == null || !cuts) return null;
@@ -964,65 +1259,56 @@
   async function drawTrend(){
     try{
       showTrendContainer();
-
       const subjectId  = $('#subjectId').value || '';
       const subclassId = $('#subclassId').value || '';
       const csatDate   = $('#csatDate').value || '';
-      const selUserId  = $('#userSelect')?.value || '';
 
-      const qs = new URLSearchParams();
-      if (subjectId && subjectId !== '*') qs.set('subjectId', subjectId);
-      if (subclassId) qs.set('subclassId', subclassId);
-      if (csatDate)   qs.set('csatDate', csatDate);
-      const qsStr = qs.toString();
-
-      // ==== 데이터 불러오기 ====
-      let arr;
-      if (readMode() === 'all') {
-        const rows = (Array.isArray(LAST_ROWS) && LAST_ROWS.length)
-          ? LAST_ROWS : await fetchAllRows();
-        arr = rows.slice().sort((a,b)=> new Date(a.testDate) - new Date(b.testDate)).map(r => ({
+      // ✅ 모드와 상관없이 월 필터가 반영된 LAST_ROWS만 사용
+      const src = Array.isArray(LAST_ROWS) ? LAST_ROWS : await fetchAllRows();
+      const arr = src.slice()
+        .sort((a,b)=> new Date(a.testDate) - new Date(b.testDate))
+        .map(r => ({
           raw: Number(r.result ?? r.score ?? 0),
           max: readMaxScore(r),
           subclassId: r.subclassId ?? r.subclass_id ?? ($('#subclassId')?.value || null),
           subclassName: r.subclassName ?? r.subclass_name ?? null,
-          subjectId: r.subjectId ?? r.subject_id ?? ($('#subjectId').value || null),
+          subjectId: r.subjectId ?? r.subject_id ?? ($('#subjectId')?.value || null),
           csatDate: r.csatDate ?? '',
           testDate: r.testDate ?? ''
         }));
-      } else {
-        let uid = (readMode() === 'one') ? (selUserId || null) : (getUidForApi() || null);
-        if (!uid) { setText('trendInfo','사용자 선택 필요'); if (trendChart) trendChart.destroy(); return; }
-        const url = `/api/stats/user/${encodeURIComponent(uid)}/attempt-trend${qsStr ? `?${qsStr}` : ''}`;
-        const res = await fetch(url, { headers: authHeaders() });
-        if (!res.ok) throw new Error('trend ' + res.status);
-        const j = await res.json();
-        arr = (Array.isArray(j)? j:[]).map(x=>({
-          raw: Number(x.value ?? x.result ?? x.score ?? x.avgScore ?? x.avg_score ?? 0),
-          max: readMaxScore(x),
-          subclassId: x.subclassId ?? x.subclass_id ?? ($('#subclassId')?.value || null),
-          subclassName: x.subclassName ?? x.subclass_name ?? null,
-          subjectId: x.subjectId ?? x.subject_id ?? ($('#subjectId').value || null),
-          csatDate: x.csatDate ?? '',
-          testDate: x.testDate ?? ''
-        }));
+      
+      // ✅ 여기로 이동: raw > max면 max 무효화하여 재하이드레이션 유도
+      if (Array.isArray(arr)) {
+        for (const o of arr) {
+          const raw = Number(o.raw);
+          const max = Number(o.max);
+          if (Number.isFinite(raw) && Number.isFinite(max) && raw > max) {
+            o.max = null;
+          }
+        }
+      }
+
+      // 데이터 없으면 깔끔하게 종료
+      if (!Array.isArray(arr) || arr.length === 0) {
+      setText('trendInfo','표시할 데이터가 없습니다.');
+      if (trendChart) { trendChart.destroy(); trendChart = null; }
+      return;
       }
 
       // (csatDate, subclassId) 별 만점 하이드레이션
-      const pairMeta = new Map(); // key -> { csatDate, subclassId, subjectId }
+      const pairMeta = new Map();
       for (const o of arr) {
         if (!o.max && o.csatDate && o.subclassId) {
-          pairMeta.set(pairKey(o.csatDate, o.subclassId),
-            { csatDate: o.csatDate, subclassId: o.subclassId, subjectId: o.subjectId });
+          pairMeta.set(`${o.csatDate}::${o.subclassId}`, {
+            csatDate: o.csatDate, subclassId: o.subclassId, subjectId: o.subjectId
+          });
         }
       }
-      for (const { csatDate, subclassId, subjectId } of pairMeta.values()) {
-        const ps = await fetchPaperScore(csatDate, subclassId, subjectId);
+      for (const meta of pairMeta.values()) {
+        const ps = await fetchPaperScore(meta.csatDate, meta.subclassId, meta.subjectId ?? ($('#subjectId')?.value || null));
         if (ps != null) {
           arr.forEach(o => {
-            if (!o.max && o.csatDate === csatDate && String(o.subclassId) === String(subclassId)) {
-              o.max = ps;
-            }
+            if (!o.max && o.csatDate === meta.csatDate && String(o.subclassId) === String(meta.subclassId)) o.max = ps;
           });
         }
       }
@@ -1150,20 +1436,21 @@
               formatter: v => `${Math.round(v)}%`
             },
             clickCallout: {
-              getLabel: (i, chart) => {
-                const subj = subjects[i] || '';
-                const subc = subclasses[i] || '';
-                const cd   = csatDates[i] || '';
-                const max  = chart.$maxScores?.[i];
-                return [
-                  subj ? `과목: ${subj}` : '',
-                  subc ? `세부과목: ${subc}` : '',
-                  cd   ? `응시월: ${cd}` : '',
-                  Number.isFinite(max) ? `만점: ${max}점` : ''
-                ].filter(Boolean).join('\n');
+                getLabel: (i, chart) => {
+                  const subj = subjects[i] || '';
+                  const subc = subclasses[i] || '';
+                  const cd   = csatDates[i] || '';
+
+                  const raw  = chart.$rawScores?.[i];
+                  const max  = chart.$maxScores?.[i];
+                  const scoreLine = Number.isFinite(raw)
+                   ? (Number.isFinite(max) ? `점수: ${raw}/${max}점` : `점수: ${raw}점`)
+                  : '';
+                  return [ subj && `과목: ${subj}`, subc && `세부과목: ${subc}`, cd && `응시월: ${cd}`, scoreLine ]
+                   .filter(Boolean).join('\n');
+                }
               }
-            }
-          },
+            },
           onClick: (evt) => {
             const items = trendChart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
             if (!items.length) {
@@ -1181,6 +1468,7 @@
 
       // 클릭 라벨에서 만점 표시용
       trendChart.$maxScores = maxScores;
+      trendChart.$rawScores = rawScores;
 
       setText('trendInfo', readMode()==='all' ? `집계 포인트 ${arr.length}개` : `총 ${arr.length}회 시행`);
       requestAnimationFrame(()=>{ wrap.scrollLeft = wrap.scrollWidth - wrap.clientWidth; });
@@ -1313,7 +1601,10 @@
     if (_kpiRow) _kpiRow.style.display = '';
     const ADMIN = isAdmin();
 
-    const rows = await fetchAllRows();
+    const rowsAll = await fetchAllRows();     // 서버/기존 필터 적용된 “원본”
+    window.LAST_ROWS_RAW = rowsAll;           // (월 바 보강용)
+    renderMonthStrip(rowsAll);                // 연/월 UI 그리기/갱신
+    const rows = applyMonthFilter(rowsAll);   // ← 월필터
     LAST_ROWS = rows;
 
     const s = calcStats(rows);
@@ -1466,6 +1757,7 @@
   function param(name){ return new URLSearchParams(location.search).get(name) || ''; }
 
   document.addEventListener('DOMContentLoaded', async () => {
+   ensureMonthFilterUI(); // 연/월 UI가 없으면 만들어 둠(처음엔 비활성)
     if (!document.body.dataset.mode) {
       document.body.dataset.mode = MODE; // 'mine' | 'all' | 'one'
     }
@@ -1499,8 +1791,13 @@
       const v = e.target.value;
       const sc = document.getElementById('subclassId');
       if (v && v !== '*') {
-        const res = await fetch(`/api/lookup/subclasses?subjectId=${v}`, { headers: authHeaders() });
-        const list = res.ok ? await res.json() : [];
+        const r = await fetchJSON(`/api/lookup/subclasses?subjectId=${v}`, { headers: authHeaders() });
+        const j = r.ok ? r.json : null;
+        const list = Array.isArray(j) ? j
+        : (j && Array.isArray(j.content)) ? j.content
+        : (j && Array.isArray(j.data))    ? j.data
+        : (j && Array.isArray(j.items))   ? j.items
+        : (j && Array.isArray(j.results)) ? j.results : [];
         sc.innerHTML = '<option value="">세부과목 선택</option>' + list.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
         sc.disabled = false;
 
@@ -1544,8 +1841,13 @@
       if (sel) sel.value = pSubject;
       // 세부과목 로드 후 값 반영 + SUBCLASS_DIR 메모
       if (sel && pSubject !== '*') {
-        const res = await fetch(`/api/lookup/subclasses?subjectId=${pSubject}`, { headers: authHeaders() });
-        const list = res.ok ? await res.json() : [];
+        const r = await fetchJSON(`/api/lookup/subclasses?subjectId=${pSubject}`, { headers: authHeaders() });
+        const j = r.ok ? r.json : null;
+        const list = Array.isArray(j) ? j
+         : (j && Array.isArray(j.content)) ? j.content
+         : (j && Array.isArray(j.data))    ? j.data
+         : (j && Array.isArray(j.items))   ? j.items
+         : (j && Array.isArray(j.results)) ? j.results : [];
         const sc = document.getElementById('subclassId');
         sc.innerHTML = '<option value="">세부과목 선택</option>' + list.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
         sc.disabled = false;
