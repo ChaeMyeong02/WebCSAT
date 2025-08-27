@@ -9,6 +9,16 @@ const PAPER_SCORE_CACHE = new Map();
 let PAPER_SCORE_FETCH_AVAILABLE = null; // null=모름, true/false=결과 기억
 let QUESTIONS_ENDPOINT_AVAILABLE = null; // ← 추가: /api/questions 존재 여부 기억
 
+function resolveSubjectIdForRow(r) {
+  // ① row → ② SUBCLASS_DIR(세부과목→과목) → ③ 선택된 UI 값
+  return (
+    r.subjectId ?? r.subject_id ??
+    SUBCLASS_DIR.get(String(r.subclassId ?? r.subclass_id ?? ''))?.subjectId ??
+    (document.getElementById('subjectId')?.value || null)
+  );
+}
+
+
   // ✅ 과목/세부과목/응시월이 전부 기본값이면 true
   function isAllDefaultSelection(){
     const sid = document.getElementById('subjectId')?.value || '';
@@ -221,6 +231,71 @@ let QUESTIONS_ENDPOINT_AVAILABLE = null; // ← 추가: /api/questions 존재 �
   function _isPlaceholderName(name, id) {
     return !name || new RegExp(`^user#${String(id)}$`, 'i').test(String(name).trim());
   }
+
+  async function buildScorePercents(rows) {
+    // rows → [{ raw, csatDate, subclassId, subjectId, max }]
+    const arr = (rows || []).map(r => {
+      const raw = Number(r.result ?? r.score ?? 0);
+      const max = readMaxScore(r); // row에 들어있다면 사용
+      const cs  = r.csatDate ?? '';
+      const sc  = r.subclassId ?? r.subclass_id ?? null;
+      const sid = resolveSubjectIdForRow(r);
+      return { raw, max, csatDate: cs, subclassId: sc, subjectId: sid };
+    });
+
+    // raw > max 같은 이상치 → max 무효화(재하이드레이션 유도)
+    for (const o of arr) {
+      if (Number.isFinite(o.raw) && Number.isFinite(o.max) && o.raw > o.max) o.max = null;
+    }
+
+    // (csatDate, subclassId, subjectId) 묶음으로 한 번씩만 만점 조회
+    const need = new Map();
+    for (const o of arr) {
+      if (!o.max && o.csatDate && o.subclassId) {
+        const key = `${o.csatDate}::${o.subclassId}::${o.subjectId ?? ''}`;
+        if (!need.has(key)) need.set(key, { csatDate: o.csatDate, subclassId: o.subclassId, subjectId: o.subjectId });
+      }
+    }
+    for (const meta of need.values()) {
+      // subjectId 필수 API면 누락 시 스킵(폴백으로 100 사용)
+      if (!meta.subjectId) continue;
+      const ps = await fetchPaperScore(meta.csatDate, meta.subclassId, meta.subjectId);
+      if (Number.isFinite(ps) && ps > 0) {
+        for (const o of arr) {
+          if (!o.max && o.csatDate === meta.csatDate && String(o.subclassId) === String(meta.subclassId)) {
+            o.max = ps;
+          }
+        }
+      }
+    }
+
+    // 퍼센트 변환
+    return arr.map(o => {
+      const denom = (Number.isFinite(o.max) && o.max > 0) ? o.max : DEFAULT_MAX_SCORE; // 최후 폴백 100
+      const p = (denom > 0) ? (o.raw / denom) * 100 : 0;
+      return Math.max(0, Math.min(100, p));
+    });
+  }
+
+  async function calcPercentStats(rows) {
+    const attempts = rows.length;
+    const participants = new Set(rows.map(r => r.userId)).size;
+    const percents = await buildScorePercents(rows);
+
+    const BIN = 10;
+    const labels = Array.from({ length: BIN }, (_, i) => `${i * 10}-${(i + 1) * 10}%`);
+    const counts = Array(BIN).fill(0);
+    for (const p of percents) {
+      const idx = Math.max(0, Math.min(9, Math.floor(p / 10)));
+      counts[idx]++;
+    }
+    const avg = percents.length
+      ? Math.round((percents.reduce((a, b) => a + b, 0) / percents.length) * 10) / 10
+      : 0;
+
+    return { attempts, participants, labels, counts, avg, percents };
+  }
+
 
   async function _resolveUserById(uid) {
     const headers = authHeaders();
@@ -552,85 +627,6 @@ const PAPER_SCORE_FALLBACKS = (typeof window !== 'undefined' && window.PAPER_SCO
 
 
   function pairKey(csatDate, subclassId){ return `${csatDate}::${subclassId}`; }
-// 총점 캐시: csatDate::subclassId::subjectId
-//const PAPER_SCORE_CACHE = new Map();
-
-//async function fetchPaperScore(csatDate, subclassId, subjectId) {
-//  const key = `${csatDate ?? ''}::${subclassId ?? ''}::${subjectId ?? ''}`;
-//  if (PAPER_SCORE_CACHE.has(key)) return PAPER_SCORE_CACHE.get(key);
-//
-//  // (A) 로컬 폴백 먼저
-//  const fb = getFallbackPaperScore(subjectId, subclassId);
-//  if (Number.isFinite(fb)) { PAPER_SCORE_CACHE.set(key, fb); return fb; }
-//
-//  // (B) 이전에 엔드포인트 없음으로 판정되면 추가 네트워크 시도 스킵
-//  if (PAPER_SCORE_FETCH_AVAILABLE === false) { PAPER_SCORE_CACHE.set(key, null); return null; }
-//
-//  const headers = authHeaders();
-//  const qs = (obj) => {
-//    const u = new URLSearchParams();
-//    Object.entries(obj).forEach(([k,v]) => (v != null && v !== '') && u.set(k, String(v)));
-//    return u.toString();
-//  };
-//
-//  const candidates = [
-//    (subclassId && csatDate) && `/api/lookup/paper-score?${qs({ subclassId, csatDate })}`,
-//    (subclassId && csatDate) && `/api/questions?${qs({ subclassId, csatDate, size: 10000 })}`,
-//    (subclassId)             && `/api/questions?${qs({ subclassId, size: 10000 })}`,
-//    (subjectId && csatDate)  && `/api/questions?${qs({ subjectId, csatDate, size: 10000 })}`,
-//    (subjectId)              && `/api/questions?${qs({ subjectId, size: 10000 })}`,
-//  ].filter(Boolean);
-//
-//  // (C) 네트워크는 한 번만 “탐색”하고, 전부 실패(특히 404)면 앞으로 스킵
-//  let tried = 0, anySuccess = false;
-//
-//  // ... (기존 sumList/sumFromPaged 그대로) ...
-//
-//  for (const url of candidates) {
-//    tried++;
-//    try {
-//      const r = await fetch(url, { headers });
-//      if (!r.ok) {          // 404 등
-//        // 404라도 여기서 콘솔에 자동으로 찍히는 건 브라우저 네트워크 로그고, 우리는 조용히 패스
-//        continue;
-//      }
-//      anySuccess = true;
-//
-//      const j = await r.json();
-//
-//      if (typeof j === 'number') { PAPER_SCORE_CACHE.set(key, j); return j; }
-//      const direct = Number(j?.paperScore ?? j?.totalScore);
-//      if (Number.isFinite(direct) && direct > 0) { PAPER_SCORE_CACHE.set(key, direct); return direct; }
-//
-//      const baseUrl = url.split('?')[0] + '?' + (url.split('?')[1] || '');
-//      let sum = await sumFromPaged(baseUrl, j);
-//      if (sum == null) continue;
-//
-//      if (csatDate) {
-//        const list = Array.isArray(j) ? j
-//                    : Array.isArray(j?.content) ? j.content
-//                    : Array.isArray(j?.data)    ? j.data
-//                    : Array.isArray(j?.items)   ? j.items
-//                    : Array.isArray(j?.results) ? j.results : [];
-//        if (list.length && list[0]?.csatDate != null) {
-//          sum = sumList(list.filter(q => String(q.csatDate) === String(csatDate)));
-//        }
-//      }
-//
-//      if (sum > 0) { PAPER_SCORE_CACHE.set(key, sum); return sum; }
-//    } catch {
-//      // 네트워크 에러 등은 그냥 다음 후보로
-//    }
-//  }
-//
-//  if (tried && !anySuccess) {
-//    PAPER_SCORE_FETCH_AVAILABLE = false;            // 앞으로는 네트워크 시도 자체를 생략
-//    console.debug('[stats] paper-score endpoints unavailable; using fallbacks/100');
-//  }
-//
-//  PAPER_SCORE_CACHE.set(key, null);
-//  return null;
-//}
 
 
   function readMaxScore(o){
@@ -922,7 +918,7 @@ const PAPER_SCORE_FALLBACKS = (typeof window !== 'undefined' && window.PAPER_SCO
   }
   function distributionCountLabel(){
     // 관리자 한 명 보기면 '응시수', 그 외엔 '인원수'
-    return readMode() === 'one' ? '인원수' : '응시수';
+    return readMode() === 'one' ? '응시수' : '응시수';
   }
 
   function updateRemindLabel() {
@@ -1164,9 +1160,9 @@ const PAPER_SCORE_FALLBACKS = (typeof window !== 'undefined' && window.PAPER_SCO
     return 9;
   }
 
-  function drawScoreDistribution(rows){
+  async function drawScoreDistribution(rows){
     if (!distCtx) return;
-    const { attempts, participants, labels, counts } = calcStats(rows);
+    const { attempts, participants, labels, counts } = await calcPercentStats(rows);
 
     if (distChart) distChart.destroy();
     distChart = new Chart(distCtx, {
@@ -1174,12 +1170,18 @@ const PAPER_SCORE_FALLBACKS = (typeof window !== 'undefined' && window.PAPER_SCO
       data:{ labels, datasets:[{ label: distributionCountLabel(), data: counts }] },
       options:{
         responsive:true, maintainAspectRatio:false,
-        plugins:{ legend:{display:true}, title:{ display:true, text:`점수 분포 · 응시 ${attempts}건 · 참여자 ${participants}명` } }
-      }
+plugins:{
+  legend:{display:true},
+  title:{ display:true, text:`점수 분포(만점 대비 % 기준) · 응시 ${attempts}건 · 참여자 ${participants}명` }
+},
+scales: {
+  x: { title: { display: true, text: '점수(만점 대비 %) 구간' } },
+  y: { beginAtZero: true, precision: 0 }
+}      }
     });
 
     const infoEl = document.getElementById('distInfo');
-    if (infoEl) infoEl.textContent = `점수 분포 · 응시 ${attempts}건 · 참여자 ${participants}명`;
+    if (infoEl) infoEl.textContent = `점수 분포(만점 대비 %) · 응시 ${attempts}건 · 참여자 ${participants}명`;
   }
 
   async function drawGradeCutDistribution(rows){
@@ -1632,7 +1634,7 @@ const PAPER_SCORE_FALLBACKS = (typeof window !== 'undefined' && window.PAPER_SCO
     setText('kpiAvg', Number.isFinite(s.avg) ? s.avg.toFixed(1) : '-');
 
     if (MODE === 'all' || MODE === 'one') {
-      if (distCtx) drawScoreDistribution(rows);
+      if (distCtx) await drawScoreDistribution(rows);
       await drawGradeCutDistribution(rows);
       computeAdminKpis(rows);
     } else {
