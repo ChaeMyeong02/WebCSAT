@@ -75,24 +75,4 @@ public class LookupController {
     public List<String> getCsatDates(@RequestParam Long subclassId) {
         return questionService.getDistinctCsatDatesForSubclass(subclassId);
     }
-
-//    @GetMapping("/api/lookup/paper-score")
-//    public ResponseEntity<Integer> paperScore(
-//            @RequestParam Long subjectId,
-//            @RequestParam(required=false) Long subclassId,
-//            @RequestParam String csatDate) {
-//        Integer total = repo2.sumPaperScore(csatDate, subjectId, subclassId);
-//        return ResponseEntity.ok(total == null ? 0 : total);
-//    }
-
-//    @GetMapping("/grade-cuts")
-//    public ResponseEntity<?> getGradeCuts(
-//            @RequestParam String csatDate,
-//            @RequestParam Long subclassId
-//    ){
-//        return gradeCutRepository.findCuts(csatDate, subclassId)
-//                .<ResponseEntity<?>>map(ResponseEntity::ok)
-//                .orElseGet(() -> ResponseEntity.notFound().build());
-//    }
-
 }

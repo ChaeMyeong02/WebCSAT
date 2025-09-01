@@ -157,33 +157,30 @@
 
   // ✅ DB 플래그 우선: question_type 0=주관식, 1=객관식
   function readQType(q) {
-    // DB 필드 우선 순위
-    const raw =
-      q?.question_type ??
-      q?.questionType ??
-      q?.type ??
-      q?.question_type_flag;
-
+    // 1) DB 플래그가 있으면 그걸 무조건 신뢰
+    const raw = q?.question_type ?? q?.questionType ?? q?.type ?? q?.question_type_flag;
     if (raw !== undefined && raw !== null) {
-      // 숫자/문자 모두 대응
       const v = (typeof raw === 'string') ? raw.trim().toLowerCase() : raw;
-
-      // 정확 규칙: 0 -> 주관식, 1 -> 객관식
-      if (v === 0 || v === '0') return 'S'; // Subjective
-      if (v === 1 || v === '1') return 'O'; // Objective
-
-      // 혹시 문자로 들어오는 다른 값들까지 안전 처리
+      if (v === 0 || v === '0') return 'S'; // 주관식
+      if (v === 1 || v === '1') return 'O'; // 객관식
       if (typeof v === 'string') {
-        if (v.includes('주관') || v === 's' || v === 'true') return 'S';
-        if (v.includes('객관') || v === 'o' || v === 'false') return 'O';
+        if (v.includes('주관') || v === 's') return 'S';
+        if (v.includes('객관') || v === 'o') return 'O';
       }
     }
 
-    // ⬇ 플래그가 아예 없을 때만 보기 유무로 판정 (보기가 하나라도 있으면 객관식)
-    const anyOpt = [q?.option1, q?.option2, q?.option3, q?.option4, q?.option5]
-      .some(hasOptionContent);
-    return anyOpt ? 'O' : 'S';
+    // 2) 정답 값으로 유추: 1~5면 객관식
+    const ansKey =
+      q?.correctAnswer ?? q?.answer ?? q?.correct ?? q?.solution ?? q?.answerIndex;
+    const ansNum = Number(ansKey);
+    if (Number.isFinite(ansNum) && ansNum >= 1 && ansNum <= 5) return 'O';
+
+    // 3) 보기 "내용"이 하나라도 있으면 객관식 (내용이 없으면 주관식)
+    const anyOptContent = ['option1','option2','option3','option4','option5']
+      .some(k => hasOptionContent(q?.[k]));
+    return anyOptContent ? 'O' : 'S';
   }
+
 
   // 이걸로 통일해서 사용
   const isSubjective = (q) => readQType(q) === 'S';
@@ -272,22 +269,36 @@
                    oninput="window.__setHidden(${globalIndex}, this.value)">
           </div>`;
       } else {
-        // 객관식
-        const choiceBlock = [1,2,3,4,5].map(n => {
-          const raw = q['option' + n];
-          if (!hasOptionContent(raw)) return '';
-          const optHTML = normalizeRootsToLaTeX(sanitizeHTML(raw));
-          const checked = (String(saved) === String(n)) ? 'checked' : '';
-          const labelHTML = `${'①②③④⑤'[n-1]} <span class="choice-content">${optHTML}</span>`;
-          return `
-            <div class="choice-row">
-              <input type="radio" id="q${globalIndex}_${n}" name="visible_${globalIndex}"
-                    value="${n}" ${checked}
-                    onchange="syncOMR(${globalIndex}, ${n}); window.__setHidden(${globalIndex}, ${n});">
-              <label for="q${globalIndex}_${n}" class="choice-label">${labelHTML}</label>
-            </div>`;
-        }).join('');
-        bodyHtml = choiceBlock || `<div class="text-muted small">보기 없음</div>`;
+        // 객관식: 보기 내용이 없으면 숫자만(①~⑤)이라도 보여주기
+        const anyContent = [1,2,3,4,5].some(n => hasOptionContent(q['option'+n]));
+        const choiceBlock = (anyContent
+          ? [1,2,3,4,5].map(n => {
+              const raw = q['option'+n];
+              if (!hasOptionContent(raw)) return '';
+              const optHTML = normalizeRootsToLaTeX(sanitizeHTML(raw));
+              const checked = (String(saved) === String(n)) ? 'checked' : '';
+              return `
+                <div class="choice-row">
+                  <input type="radio" id="q${globalIndex}_${n}" name="visible_${globalIndex}"
+                         value="${n}" ${checked}
+                         onchange="syncOMR(${globalIndex}, ${n}); window.__setHidden(${globalIndex}, ${n});">
+                  <label for="q${globalIndex}_${n}" class="choice-label">
+                    ${'①②③④⑤'[n-1]} <span class="choice-content">${optHTML}</span>
+                  </label>
+                </div>`;
+            }).join('')
+          : [1,2,3,4,5].map(n => {
+              const checked = (String(saved) === String(n)) ? 'checked' : '';
+              return `
+                <div class="choice-row">
+                  <input type="radio" id="q${globalIndex}_${n}" name="visible_${globalIndex}"
+                         value="${n}" ${checked}
+                         onchange="syncOMR(${globalIndex}, ${n}); window.__setHidden(${globalIndex}, ${n});">
+                  <label for="q${globalIndex}_${n}" class="choice-label">${'①②③④⑤'[n-1]}</label>
+                </div>`;
+            }).join('')
+        );
+        bodyHtml = choiceBlock;
       }
 
       box.innerHTML = `
@@ -340,23 +351,41 @@
         line.innerHTML = `
           <span style="cursor:pointer; font-weight:bold;" onclick="goToQuestion(${i})">Q${i + 1}:</span>
           <input type="text" class="form-control form-control-sm"
-                 style="width: 140px; display:inline-block; margin-left:6px;"
+                 style="width:140px; display:inline-block; margin-left:6px;"
                  placeholder="정답"
                  value="${(saved||'').replace(/"/g,'&quot;')}"
                  oninput="window.__setHidden(${i}, this.value)">
-
         `;
       } else {
+        // 👉 보기 내용이 하나라도 있는가?
+        const anyContent = [1,2,3,4,5].some(n => hasOptionContent(q['option'+n]));
+
+        const btns = anyContent
+          // 내용이 있으면 그 보기들만 버튼 출력
+          ? [1,2,3,4,5].map(n => {
+              const opt = q['option'+n];
+              if (!hasOptionContent(opt)) return '';
+              const selected = (String(saved) === String(n)) ? 'selected' : '';
+              return `<button type="button" data-index="${i}" data-value="${n}"
+                              class="${selected}" onclick="selectAnswer(this)">
+                        ${'①②③④⑤'[n-1]}
+                      </button>`;
+            }).join('')
+          // 내용이 하나도 없으면 ①~⑤를 전부 기본 출력
+          : [1,2,3,4,5].map(n => {
+              const selected = (String(saved) === String(n)) ? 'selected' : '';
+              return `<button type="button" data-index="${i}" data-value="${n}"
+                              class="${selected}" onclick="selectAnswer(this)">
+                        ${'①②③④⑤'[n-1]}
+                      </button>`;
+            }).join('');
+
         line.innerHTML = `
           <span style="cursor:pointer; font-weight:bold;" onclick="goToQuestion(${i})">Q${i + 1}:</span>
-          ${[1,2,3,4,5].map(n => {
-            const opt = q['option' + n];
-            if (!hasOptionContent(opt)) return '';
-            const selected = (String(saved) === String(n)) ? 'selected' : '';
-            return `<button type="button" data-index="${i}" data-value="${n}" class="${selected}" onclick="selectAnswer(this)">${'①②③④⑤'[n - 1]}</button>`;
-          }).join('')}
+          ${btns}
         `;
       }
+
       omr.appendChild(line);
     }
   }
