@@ -1649,6 +1649,8 @@ scales: {
 
     await drawTrend();
     await updateGradeUI(rows);
+
+    window.examData = rows;
   }
 
   // ================== 리마인드(응시 목록) ==================
@@ -1754,6 +1756,58 @@ scales: {
     if (!examId) return;
     window.location.href = `/review/${encodeURIComponent(examId)}`;
   });
+
+  // ================= AI 학습 조언 기능 =================
+  let aiRequested = false;
+
+  async function requestAiAdvice(exams) {
+    if (aiRequested) return;
+    aiRequested = true;
+    const box = document.getElementById('aiAdviceBox');
+    if (box) box.textContent = "AI가 학습 조언을 생성 중입니다. ⏳";
+
+    try {
+      const res = await fetch('/api/stats/advice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + localStorage.getItem('token')
+        },
+        body: JSON.stringify(exams)
+      });
+
+      console.log('AI 요청 응답 status:', res.status, 'ok:', res.ok);
+      const text = await res.text();
+      console.log('AI 요청 응답 body (first 1000 chars):', text.slice(0,1000));
+      // HTML 로그인 페이지가 왔는지 간단 체크
+      if (res.status === 401 || /<form[^>]+login|<title>로그인|<body[^>]*>/.test(text.slice(0,200).toLowerCase())) {
+        box.textContent = "인증 실패: 로그인 화면이 반환되었습니다. (토큰 확인 필요)";
+      } else {
+        box.textContent = text || "AI 조언을 생성하지 못했습니다.";
+      }
+
+    } catch (err) {
+      console.error("AI 조언 요청 실패:", err);
+      if (box) box.textContent = "AI 조언을 불러오지 못했습니다. (요청 실패)";
+    } finally {
+      aiRequested = false;
+    }
+  }
+
+  // ✅ 버튼 연결 (DOMContentLoaded 이후)
+  document.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById('aiAdviceBtn');
+    if (btn) {
+      btn.addEventListener("click", () => {
+        if (!window.examData || window.examData.length === 0) {
+          alert("먼저 시험 데이터를 불러와주세요.");
+          return;
+        }
+        requestAiAdvice(window.examData);
+      });
+    }
+  });
+
 
   // ========== 부트 ==========
   function param(name){ return new URLSearchParams(location.search).get(name) || ''; }

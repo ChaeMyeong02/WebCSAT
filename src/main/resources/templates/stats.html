@@ -217,16 +217,26 @@
 
     <div class="divider"></div>
 
-    <!-- Trend chart -->
-    <div class="card mb-4" id="trendCard">
-        <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h5 id="trendTitle" class="mb-0">내 점수 추이</h5>
-                <span id="trendInfo" class="muted small"></span>
-            </div>
-            <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+<!-- Trend chart -->
+<div class="card mb-4" id="trendCard">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 id="trendTitle" class="mb-0">내 점수 추이</h5>
+            <span id="trendInfo" class="muted small"></span>
         </div>
+        <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+
+        <!-- ✅ AI 학습 조언 버튼 추가 -->
+        <div class="text-center mt-3">
+            <button id="aiAdviceBtn" class="btn btn-outline-primary">
+                🧠 AI 학습 조언 보기
+            </button>
+        </div>
+
+        <!-- ✅ AI 결과 표시 박스 (기존 코드 유지) -->
+        <div id="aiAdviceBox" class="alert alert-secondary mt-3" style="white-space:pre-wrap;"></div>
     </div>
+</div>
 
     <!-- Distribution chart -->
     <div class="card mb-4" id="distCard" data-role="admin-only">

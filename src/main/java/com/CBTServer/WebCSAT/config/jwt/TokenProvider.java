@@ -76,6 +76,7 @@ public class TokenProvider {
                     .parseClaimsJws(token);
             return true;
         } catch (Exception e) {
+            System.out.println("❌ invalid token: " + e.getMessage());
             return false;
         }
     }

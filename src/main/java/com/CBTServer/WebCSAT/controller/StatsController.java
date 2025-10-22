@@ -1,12 +1,15 @@
 package com.CBTServer.WebCSAT.controller;
 
 import com.CBTServer.WebCSAT.dto.AttemptTrendDTO;
+import com.CBTServer.WebCSAT.dto.ExamDTO;
 import com.CBTServer.WebCSAT.repository.LookupRepository;
 import com.CBTServer.WebCSAT.repository.StatsRepository;
+import com.CBTServer.WebCSAT.service.AiAdviceService;
 import com.CBTServer.WebCSAT.service.StatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
 
 import java.sql.Timestamp;
 import java.util.List;
@@ -19,6 +22,18 @@ public class StatsController {
     private final StatsService statsService;
     private final LookupRepository repo; // repo.attemptTrend(uid) 를 제공하는 리포지토리
     private final StatsRepository statsRepository; // repo.attemptTrend(uid) 를 제공하는 리포지토리
+    private final AiAdviceService aiAdviceService;
+
+    @PostMapping("/advice")
+    public Mono<ResponseEntity<String>> generateAdvice(@RequestBody List<ExamDTO> exams) {
+        System.out.println("🧪 AI 조언 요청 도착!");
+        exams.forEach(e -> System.out.println("📝 시험: " + e.getTestDate() + " / 점수: " + e.getResult()));
+
+        return aiAdviceService.generateAdviceFromExams(exams)
+                .map(advice -> ResponseEntity.ok(advice));
+    }
+
+
     // 기존 그대로
     @GetMapping("/user/{userId}/percentile-trend")
     public ResponseEntity<List<Map<String, Object>>> getPercentileTrend(
@@ -61,24 +76,6 @@ public class StatsController {
         return ResponseEntity.ok(statsService.getRetakeRate(csatDate));
     }
 
-//
-//    @GetMapping("/user/{uid}/attempt-trend")
-//    public List<AttemptTrendDTO> attemptTrend(
-//            @PathVariable Long uid,
-//            @RequestParam(required = false) Long subjectId,
-//            @RequestParam(required = false) Long subclassId,
-//            @RequestParam(required = false) String csatDate
-//    ) {
-//        return repo.attemptTrend(uid, subjectId, subclassId, csatDate).stream()
-//                .map(r -> new AttemptTrendDTO(
-//                        ((Number) r[0]).longValue(),                 // examId
-//                        ((Number) r[1]).longValue(),                 // subclassId
-//                        (String) r[2],                               // csatDate
-//                        ((java.sql.Timestamp) r[3]).toLocalDateTime(), // testDate
-//                        ((Number) r[4]).intValue()                   // percentile
-//                ))
-//                .toList();
-//    }
 
     @GetMapping("/user/{uid}/attempt-trend")
     public List<AttemptTrendDTO> attemptTrendUser(

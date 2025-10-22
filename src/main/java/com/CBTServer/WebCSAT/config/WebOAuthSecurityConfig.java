@@ -46,14 +46,30 @@ public class WebOAuthSecurityConfig {
         http.httpBasic(httpBasic -> httpBasic.disable());
         http.formLogin(formLogin -> formLogin.disable());
 
-        http.sessionManagement(management -> management.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        http.sessionManagement(management ->
+                management.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
 
         http.addFilterBefore(tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
 
 
         http.exceptionHandling(exception -> exception
-                .accessDeniedPage("/login") // 403 → /login
-                .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")) // 401 → /login
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            String uri = request.getRequestURI();
+                            // ✅ /api/stats/advice 요청만 JSON 응답
+                            if (uri.startsWith("/api/stats/advice")) {
+                                response.setStatus(HttpStatus.UNAUTHORIZED.value());
+                                response.setContentType("application/json;charset=UTF-8");
+                                response.getWriter().write("{\"error\":\"unauthorized\"}");
+                            } else {
+                                // ✅ 나머지는 로그인 페이지로 리다이렉트
+                                response.sendRedirect("/login");
+                            }
+                        })
+                .accessDeniedHandler((req, res, ex) -> {
+                    res.setStatus(HttpStatus.FORBIDDEN.value());
+                    res.setContentType("application/json;charset=UTF-8");
+                    res.getWriter().write("{\"error\":\"forbidden\"}");
+                })
         );
 
         http.authorizeHttpRequests(auth -> auth
@@ -62,6 +78,8 @@ public class WebOAuthSecurityConfig {
                         // 정적 자원 허용
                         .requestMatchers("/img/**", "/css/**", "/js/**").permitAll()
                         .requestMatchers("/api/user/*/role","api/user").hasRole("ADMIN")
+                        // ✅ 점수 추이 AI 조언은 POST라도 인증된 사용자면 허용
+                        .requestMatchers(HttpMethod.POST, "/api/stats/advice").authenticated()
                         // GET 메서드인 경우: 인증된 사용자 모두 허용
                         .requestMatchers(HttpMethod.GET, "/api/**").authenticated()
                         // 나머지 메서드의 /api/** 요청은 ADMIN만
