@@ -41,7 +41,7 @@ public class OpenAiClient {
                                 Map.of("role", "system", "content", "You are a teacher analyzing student exam scores."),
                                 Map.of("role", "user", "content", prompt)
                         },
-                        "max_tokens", 200,
+                        "max_tokens", 500,
                         "temperature", 0.7
                 ))
                 .retrieve()

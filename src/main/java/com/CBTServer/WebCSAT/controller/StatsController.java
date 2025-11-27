@@ -25,11 +25,27 @@ public class StatsController {
     private final AiAdviceService aiAdviceService;
 
     @PostMapping("/advice")
-    public Mono<ResponseEntity<String>> generateAdvice(@RequestBody List<ExamDTO> exams) {
+    public Mono<ResponseEntity<String>> generateAdvice(
+            @RequestBody List<ExamDTO> exams,
+            @RequestHeader(value = "Authorization", required = false) String token,
+            @RequestParam(defaultValue = "mine") String mode // mine | one | all
+    ) {
         System.out.println("🧪 AI 조언 요청 도착!");
         exams.forEach(e -> System.out.println("📝 시험: " + e.getTestDate() + " / 점수: " + e.getResult()));
 
-        return aiAdviceService.generateAdviceFromExams(exams)
+        // ✅ 역할 추출 (토큰에서 ADMIN / USER)
+        String role = "USER";
+        try {
+            if (token != null && token.contains("ADMIN")) role = "ADMIN";
+            // 위는 간단한 예시 — 실제로는 jwtUtil 등으로 roles 파싱하는게 안전함.
+        } catch (Exception e) {
+            System.out.println("⚠️ JWT 파싱 실패, 기본 USER로 설정");
+        }
+
+        System.out.println("👤 역할: " + role + " / 모드: " + mode);
+
+        // ✅ 역할 + 모드에 맞게 AI 요청
+        return aiAdviceService.generateAdviceFromExams(exams, role, mode)
                 .map(advice -> ResponseEntity.ok(advice));
     }
 

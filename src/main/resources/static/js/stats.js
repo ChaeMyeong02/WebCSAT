@@ -1760,6 +1760,21 @@ scales: {
   // ================= AI 학습 조언 기능 =================
   let aiRequested = false;
 
+  // ✅ JWT 토큰에서 ADMIN 여부 판별
+  function isAdmin() {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return false;
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const roles = payload.authorities || payload.roles || payload.role || payload.scope || [];
+      const str = Array.isArray(roles) ? roles.join(',') : String(roles || '');
+      return /ROLE_ADMIN|ADMIN/i.test(str);
+    } catch (e) {
+      console.warn("JWT 파싱 실패:", e);
+      return false;
+    }
+  }
+
   async function requestAiAdvice(exams) {
     if (aiRequested) return;
     aiRequested = true;
@@ -1767,7 +1782,20 @@ scales: {
     if (box) box.textContent = "AI가 학습 조언을 생성 중입니다. ⏳";
 
     try {
-      const res = await fetch('/api/stats/advice', {
+      // ✅ 모드 자동 판별
+      let mode = "mine";
+      const admin = isAdmin();
+      const path = location.pathname;
+
+      if (admin) {
+        if (path.includes("/stats/admin")) mode = "all";
+        else if (path.includes("/stats/user")) mode = "one";
+      }
+
+      console.log("👤 관리자:", admin, "| 📊 모드:", mode);
+
+      // ✅ mode 파라미터 붙여서 요청
+      const res = await fetch(`/api/stats/advice?mode=${mode}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1779,7 +1807,7 @@ scales: {
       console.log('AI 요청 응답 status:', res.status, 'ok:', res.ok);
       const text = await res.text();
       console.log('AI 요청 응답 body (first 1000 chars):', text.slice(0,1000));
-      // HTML 로그인 페이지가 왔는지 간단 체크
+
       if (res.status === 401 || /<form[^>]+login|<title>로그인|<body[^>]*>/.test(text.slice(0,200).toLowerCase())) {
         box.textContent = "인증 실패: 로그인 화면이 반환되었습니다. (토큰 확인 필요)";
       } else {
